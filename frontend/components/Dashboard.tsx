@@ -37,6 +37,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onStartAnalysis, onStartFileAnaly
   const [projectsLoading, setProjectsLoading] = useState(true);
   const [scheduleLoading, setScheduleLoading] = useState(true);
 
+  // 图片加载状态
+  const [imageLoadErrors, setImageLoadErrors] = useState<Set<string>>(new Set());
+
   // 组件挂载时加载数据
   useEffect(() => {
     loadDashboardData();
@@ -134,6 +137,28 @@ const Dashboard: React.FC<DashboardProps> = ({ onStartAnalysis, onStartFileAnaly
       FileVideo, Zap, Timer, TrendingUp
     };
     return iconMap[iconName] || FileVideo;
+  };
+
+  // 获取图片URL（处理相对路径）
+  const getImageUrl = (thumbnail: string) => {
+    if (thumbnail.startsWith('http')) {
+      return thumbnail;
+    }
+    if (thumbnail.startsWith('/')) {
+      const baseUrl = import.meta.env.VITE_SHOT_ANALYSIS_BASE_URL || 'http://localhost:8000';
+      return `${baseUrl}${thumbnail}`;
+    }
+    return thumbnail;
+  };
+
+  // 处理图片加载错误
+  const handleImageError = (projectId: string, e: React.SyntheticEvent<HTMLImageElement>) => {
+    const target = e.target as HTMLImageElement;
+    // 避免无限循环
+    if (!imageLoadErrors.has(projectId)) {
+      setImageLoadErrors(prev => new Set(prev).add(projectId));
+      target.src = `https://picsum.photos/seed/${projectId}/400/225`;
+    }
   };
 
   // 处理文件选择
@@ -372,12 +397,17 @@ const Dashboard: React.FC<DashboardProps> = ({ onStartAnalysis, onStartFileAnaly
                   )}
                 </div>
 
-                <div className="pt-8 border-t border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                  <div className="pt-8 border-t border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-6">
                   <div className="flex items-center gap-6">
                     <div className="flex -space-x-3">
                       {[1, 2, 3].map(i => (
-                        <div key={i} className="w-10 h-10 rounded-full border-4 border-[#0b0f1a] overflow-hidden bg-gray-800">
-                          <img src={`https://i.pravatar.cc/100?u=dashboard_${i}`} alt="" />
+                        <div key={i} className="w-10 h-10 rounded-full border-4 border-[#0b0f1a] overflow-hidden bg-gray-800 shadow-lg">
+                          <img 
+                            src={`https://i.pravatar.cc/100?u=dashboard_${i}`} 
+                            alt="用户头像" 
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
                         </div>
                       ))}
                     </div>
@@ -415,7 +445,13 @@ const Dashboard: React.FC<DashboardProps> = ({ onStartAnalysis, onStartFileAnaly
                     className="group bg-gray-900/30 border border-gray-800/50 rounded-[3rem] overflow-hidden hover:border-indigo-500/50 transition-all flex flex-col cursor-pointer shadow-xl hover:shadow-indigo-500/20 active:scale-[0.98]"
                   >
                     <div className="aspect-[16/9] bg-gray-950 relative overflow-hidden">
-                      <img src={project.thumbnail} alt={project.title} className="object-cover w-full h-full opacity-40 group-hover:opacity-100 transition-all duration-700 group-hover:scale-105" />
+                      <img 
+                        src={getImageUrl(project.thumbnail)} 
+                        alt={project.title} 
+                        className="object-cover w-full h-full opacity-40 group-hover:opacity-100 transition-all duration-700 group-hover:scale-105"
+                        onError={(e) => handleImageError(project.id, e)}
+                        loading="lazy"
+                      />
                       <div className="absolute inset-0 bg-gradient-to-t from-[#0b0f1a] via-transparent to-transparent opacity-90" />
                       
                       <div className="absolute top-6 left-6 flex flex-col gap-2">

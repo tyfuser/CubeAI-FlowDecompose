@@ -182,6 +182,13 @@ export interface AnalysisResult {
   };
 }
 
+export interface VideoSourceInfo {
+  source_type: string;
+  source_url?: string;
+  source_path?: string;
+  local_path?: string;
+}
+
 export interface JobResponse {
   job_id: string;
   status: JobStatus;
@@ -194,6 +201,8 @@ export interface JobResponse {
     code: string;
     message: string;
   };
+  target_video?: VideoSourceInfo;
+  user_video?: VideoSourceInfo;
 }
 
 export interface HistoryItem {

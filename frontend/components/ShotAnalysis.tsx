@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Upload, FileVideo, Play, Pause, History, Trash2, ChevronRight, X } from 'lucide-react';
 import { Segment, Feature, JobResponse, HistoryItem } from '../types';
-import { createAnalysisJob, pollJobStatus, getHistory, deleteJob } from '../services/videoAnalysisService';
+import { createAnalysisJob, pollJobStatus, getJobStatus, getHistory, deleteJob } from '../services/videoAnalysisService';
 import { isApiError } from '../services/api';
 
 const ShotAnalysis: React.FC = () => {
@@ -16,6 +16,7 @@ const ShotAnalysis: React.FC = () => {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [selectedSegment, setSelectedSegment] = useState<Segment | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [failedThumbnails, setFailedThumbnails] = useState<Set<string>>(new Set());
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -140,14 +141,92 @@ const ShotAnalysis: React.FC = () => {
       const historyData = await getHistory(50);
       setHistory(historyData);
       setActiveTab('history');
+      setFailedThumbnails(new Set()); // 清空失败记录
+      
+      // 调试：打印缩略图URL
+      console.log('历史记录加载完成，缩略图URL:');
+      historyData.forEach(item => {
+        if (item.thumbnail_url) {
+          console.log(`- ${item.title}: ${item.thumbnail_url}`);
+        } else {
+          console.log(`- ${item.title}: 无缩略图`);
+        }
+      });
     } catch (err: any) {
       console.error('加载历史记录失败:', err);
       setError('加载历史记录失败');
     }
   };
 
+  // 加载历史记录详情
+  const handleLoadHistoryDetail = async (item: HistoryItem) => {
+    try {
+      setError(null);
+      setProgress({ percent: 0, message: '正在加载历史记录...', stage: '加载中' });
+      
+      // 获取完整的任务结果
+      const jobResult = await getJobStatus(item.job_id);
+      
+      if (jobResult.status === 'succeeded' && jobResult.result) {
+        setResult(jobResult);
+        // 切换到上传标签页以显示结果
+        setActiveTab('upload');
+        
+        // 清空部分片段（使用完整结果）
+        setPartialSegments([]);
+        
+        // 设置视频URL/路径
+        if (jobResult.target_video) {
+          const video = jobResult.target_video;
+          // 如果有本地路径，构建预览URL
+          if (video.local_path) {
+            // 检查是否在 data/uploads 目录
+            if (video.local_path.includes('/uploads/')) {
+              const baseUrl = 'http://localhost:8000';
+              const filename = video.local_path.split('/uploads/').pop();
+              const previewUrl = `${baseUrl}/data/uploads/${filename}`;
+              setVideoUrl(previewUrl);
+              console.log('设置视频预览URL:', previewUrl);
+            } else if (video.local_path.includes('/jobs/')) {
+              // 如果在 jobs 目录下
+              const pathAfterJobs = video.local_path.split('/jobs/').pop();
+              const baseUrl = 'http://localhost:8000';
+              const previewUrl = `${baseUrl}/data/jobs/${pathAfterJobs}`;
+              setVideoUrl(previewUrl);
+              console.log('设置视频预览URL:', previewUrl);
+            } else {
+              // 尝试直接使用文件名
+              const filename = video.local_path.split('/').pop();
+              const baseUrl = 'http://localhost:8000';
+              const previewUrl = `${baseUrl}/data/uploads/${filename}`;
+              setVideoUrl(previewUrl);
+              console.log('尝试设置视频预览URL:', previewUrl);
+            }
+          } else if (video.source_url) {
+            setVideoUrl(video.source_url);
+          } else if (video.source_path) {
+            setVideoPath(video.source_path);
+          }
+        }
+        
+        setProgress({ percent: 100, message: '历史记录加载完成', stage: '完成' });
+        setTimeout(() => setProgress({ percent: 0, message: '', stage: '' }), 2000);
+      } else if (jobResult.status === 'failed') {
+        setError('该任务分析失败，无法查看详情');
+      } else if (jobResult.status === 'running') {
+        setError('该任务仍在分析中，请稍后再试');
+      } else {
+        setError('该任务尚未完成分析');
+      }
+    } catch (err: any) {
+      console.error('加载历史记录详情失败:', err);
+      setError('加载历史记录详情失败');
+    }
+  };
+
   // 删除历史记录
-  const handleDeleteHistory = async (jobId: string) => {
+  const handleDeleteHistory = async (jobId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // 阻止事件冒泡，避免触发查看详情
     if (!confirm('确定删除此记录？')) return;
     
     try {
@@ -511,18 +590,28 @@ const ShotAnalysis: React.FC = () => {
             </button>
 
             {/* 进度条 */}
-            {isAnalyzing && (
+            {(isAnalyzing || progress.message) && (
               <div className="space-y-3">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">{progress.message}</span>
-                  <span className="text-indigo-400 font-bold">{Math.round(progress.percent)}%</span>
+                  <span className={`${progress.percent === 100 ? 'text-green-400' : 'text-gray-400'}`}>
+                    {progress.message}
+                  </span>
+                  {progress.percent > 0 && (
+                    <span className={`font-bold ${progress.percent === 100 ? 'text-green-400' : 'text-indigo-400'}`}>
+                      {Math.round(progress.percent)}%
+                    </span>
+                  )}
                 </div>
-                <div className="w-full bg-gray-800 rounded-full h-2 overflow-hidden">
-                  <div
-                    className="bg-indigo-500 h-full transition-all duration-300"
-                    style={{ width: `${progress.percent}%` }}
-                  />
-                </div>
+                {progress.percent > 0 && (
+                  <div className="w-full bg-gray-800 rounded-full h-2 overflow-hidden">
+                    <div
+                      className={`h-full transition-all duration-300 ${
+                        progress.percent === 100 ? 'bg-green-500' : 'bg-indigo-500'
+                      }`}
+                      style={{ width: `${progress.percent}%` }}
+                    />
+                  </div>
+                )}
               </div>
             )}
 
@@ -623,21 +712,81 @@ const ShotAnalysis: React.FC = () => {
 
         {/* 历史记录界面 */}
         {activeTab === 'history' && (
-          <div className="space-y-4">
+          <div className="space-y-6">
             {history.length === 0 ? (
               <div className="text-center py-20 text-gray-500">
                 <History size={48} className="mx-auto mb-4 opacity-20" />
                 <p>暂无历史记录</p>
               </div>
             ) : (
-              history.map((item) => (
+              <>
+                {/* 提示信息 */}
+                <div className="p-4 bg-indigo-500/5 border border-indigo-500/20 rounded-2xl flex items-center gap-3">
+                  <div className="p-2 bg-indigo-500/10 rounded-lg">
+                    <History size={18} className="text-indigo-400" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-white mb-1">💡 点击任意记录查看完整分解详情</p>
+                    <p className="text-xs text-gray-400">
+                      历史记录包含完整的镜头时间轴、特征分析和学习要点
+                    </p>
+                  </div>
+                </div>
+                
+                {history.map((item) => (
                 <div
                   key={item.job_id}
-                  className="p-6 bg-gray-950/80 border border-gray-800 rounded-3xl hover:border-indigo-500/30 transition-all"
+                  onClick={() => handleLoadHistoryDetail(item)}
+                  className="bg-gray-950/80 border border-gray-800 rounded-3xl hover:border-indigo-500/50 transition-all cursor-pointer group overflow-hidden"
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <h3 className="text-lg font-bold mb-2">{item.title || '未命名任务'}</h3>
+                  <div className="flex items-start gap-4">
+                    {/* 缩略图或图标占位 */}
+                    <div className="w-48 h-32 flex-shrink-0 bg-gray-900 relative overflow-hidden flex items-center justify-center">
+                      {item.thumbnail_url && !failedThumbnails.has(item.job_id) ? (
+                        <>
+                          <img 
+                            src={item.thumbnail_url.startsWith('http') ? item.thumbnail_url : `http://localhost:8000${item.thumbnail_url}`}
+                            alt={item.title || '视频缩略图'}
+                            className="w-full h-full object-cover opacity-70 group-hover:opacity-100 group-hover:scale-105 transition-all duration-300"
+                            onError={() => {
+                              // 图片加载失败时，记录到失败列表
+                              setFailedThumbnails(prev => new Set(prev).add(item.job_id));
+                            }}
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-r from-transparent to-gray-950/80" />
+                          <Play size={24} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white/60 group-hover:text-white/90 transition-colors" />
+                        </>
+                      ) : (
+                        <>
+                          <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/20 to-gray-900" />
+                          <FileVideo size={40} className="text-gray-600 group-hover:text-indigo-500 transition-colors relative z-10" />
+                        </>
+                      )}
+                    </div>
+                    
+                    <div className="flex-1 p-6">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="text-lg font-bold group-hover:text-indigo-400 transition-colors">
+                          {item.title || '未命名任务'}
+                        </h3>
+                        {item.status === 'succeeded' ? (
+                          <span className="px-2 py-1 bg-green-500/10 border border-green-500/20 rounded-lg text-[10px] font-bold text-green-400">
+                            ✓ 已完成
+                          </span>
+                        ) : item.status === 'failed' ? (
+                          <span className="px-2 py-1 bg-red-500/10 border border-red-500/20 rounded-lg text-[10px] font-bold text-red-400">
+                            ✗ 失败
+                          </span>
+                        ) : item.status === 'running' ? (
+                          <span className="px-2 py-1 bg-blue-500/10 border border-blue-500/20 rounded-lg text-[10px] font-bold text-blue-400 animate-pulse">
+                            ⟳ 进行中
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 bg-gray-500/10 border border-gray-500/20 rounded-lg text-[10px] font-bold text-gray-400">
+                            ⏳ 排队中
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-4 text-sm text-gray-500 mb-3">
                         <span>{item.segment_count || 0} 个镜头</span>
                         <span>·</span>
@@ -647,24 +796,35 @@ const ShotAnalysis: React.FC = () => {
                       </div>
                       {item.learning_points.length > 0 && (
                         <div className="space-y-1">
-                          {item.learning_points.map((point, idx) => (
+                          {item.learning_points.slice(0, 3).map((point, idx) => (
                             <p key={idx} className="text-sm text-gray-400 flex items-start gap-2">
                               <ChevronRight size={14} className="mt-0.5 text-indigo-400 flex-shrink-0" />
                               {point}
                             </p>
                           ))}
+                          {item.learning_points.length > 3 && (
+                            <p className="text-xs text-gray-600 italic pl-5">
+                              还有 {item.learning_points.length - 3} 条学习要点...
+                            </p>
+                          )}
                         </div>
                       )}
                     </div>
-                    <button
-                      onClick={() => handleDeleteHistory(item.job_id)}
-                      className="p-2 hover:bg-red-500/10 text-gray-500 hover:text-red-400 rounded-lg transition-colors"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    
+                    <div className="flex items-center gap-2 pr-6">
+                      <button
+                        onClick={(e) => handleDeleteHistory(item.job_id, e)}
+                        className="p-2 hover:bg-red-500/10 text-gray-500 hover:text-red-400 rounded-lg transition-colors"
+                        title="删除记录"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                      <ChevronRight size={20} className="text-gray-600 group-hover:text-indigo-400 transition-colors" />
+                    </div>
                   </div>
                 </div>
-              ))
+              ))}
+              </>
             )}
           </div>
         )}

@@ -110,6 +110,14 @@ class JobErrorInfo(BaseModel):
     details: Optional[Dict[str, Any]] = None
 
 
+class VideoSourceInfo(BaseModel):
+    """视频源信息"""
+    source_type: str
+    source_url: Optional[str] = None
+    source_path: Optional[str] = None
+    local_path: Optional[str] = None
+
+
 class JobResponse(BaseModel):
     """Job响应"""
     job_id: str
@@ -123,6 +131,8 @@ class JobResponse(BaseModel):
     updated_at: datetime
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
+    target_video: Optional[VideoSourceInfo] = None  # 目标视频信息
+    user_video: Optional[VideoSourceInfo] = None  # 用户视频信息（compare模式）
 
 
 # ===== 路由处理 =====
@@ -201,6 +211,31 @@ async def get_job(job_id: str):
             started_at=job.started_at,
             completed_at=job.completed_at
         )
+        
+        # 查询关联的视频资源
+        from ..db.repo import AssetRepository
+        from ..db.models import AssetRole
+        asset_repo = AssetRepository(db)
+        
+        # 目标视频
+        target_asset = asset_repo.get_by_job_and_role(job_id, AssetRole.TARGET)
+        if target_asset:
+            response.target_video = VideoSourceInfo(
+                source_type=target_asset.source_type or "file",
+                source_url=target_asset.source_url,
+                source_path=target_asset.source_path,
+                local_path=target_asset.local_path
+            )
+        
+        # 用户视频（compare模式）
+        user_asset = asset_repo.get_by_job_and_role(job_id, AssetRole.USER)
+        if user_asset:
+            response.user_video = VideoSourceInfo(
+                source_type=user_asset.source_type or "file",
+                source_url=user_asset.source_url,
+                source_path=user_asset.source_path,
+                local_path=user_asset.local_path
+            )
         
         # 进度
         if job.status == JobStatus.RUNNING:

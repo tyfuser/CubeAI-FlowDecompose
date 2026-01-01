@@ -1,0 +1,5 @@
+{
+  "name": "Story Galaxy Controller",
+  "description": "A session-based narrative puzzle demo. Desktop console manages the session while mobile clients receive real-time narrative action streams.",
+  "requestFramePermissions": []
+}
