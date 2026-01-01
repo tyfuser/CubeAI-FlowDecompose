@@ -29,6 +29,9 @@ const elements = {
     // 选项
     fpsInput: document.getElementById('fps'),
     maxFramesInput: document.getElementById('max-frames'),
+    showCamera: document.getElementById('show-camera'),
+    showLighting: document.getElementById('show-lighting'),
+    showColor: document.getElementById('show-color'),
     
     // 按钮
     btnAnalyze: document.getElementById('btn-analyze'),
@@ -80,6 +83,9 @@ function init() {
     
     // 播放控制
     setupVideoPlayer();
+    
+    // 轨道显示/隐藏控制
+    setupTrackVisibility();
 }
 
 // ========== 模式切换 ==========
@@ -221,9 +227,17 @@ async function createJob() {
             }
         },
         options: {
+            scene_detection: {
+                use_cv: true,
+                threshold: 27.0,
+                min_scene_len: 15
+            },
             frame_extract: {
                 fps: parseFloat(elements.fpsInput.value),
                 max_frames: parseInt(elements.maxFramesInput.value)
+            },
+            llm: {
+                enabled_modules: ['camera_motion', 'lighting', 'color_grading']
             }
         }
     };
@@ -310,11 +324,14 @@ function showTimeline(result) {
     // 渲染时间标尺
     renderTimeRuler(totalDuration);
     
-    // 渲染轨道
+    // 渲染所有轨道（不管复选框状态，始终渲染）
     renderVideoSegments(segments, totalDuration);
     renderFeatureTrack(segments, totalDuration, 'camera_motion', elements.cameraTrack);
     renderFeatureTrack(segments, totalDuration, 'lighting', elements.lightingTrack);
     renderFeatureTrack(segments, totalDuration, 'color_grading', elements.colorTrack);
+    
+    // 根据复选框状态显示/隐藏轨道
+    updateTrackVisibility();
 }
 
 function renderTimeRuler(totalDuration) {
@@ -639,6 +656,41 @@ function loadVideoPreview() {
         video.src = state.targetFileURL;
         video.load();
     }
+}
+
+// ========== 轨道显示控制 ==========
+function setupTrackVisibility() {
+    // 为每个复选框添加事件监听
+    elements.showCamera.addEventListener('change', updateTrackVisibility);
+    elements.showLighting.addEventListener('change', updateTrackVisibility);
+    elements.showColor.addEventListener('change', updateTrackVisibility);
+    
+    // 注意：不在这里调用 updateTrackVisibility()
+    // 因为轨道还没有渲染，会在 showTimeline() 中调用
+}
+
+function updateTrackVisibility() {
+    // 获取轨道元素（.track）
+    const cameraTrack = elements.cameraTrack.closest('.track');
+    const lightingTrack = elements.lightingTrack.closest('.track');
+    const colorTrack = elements.colorTrack.closest('.track');
+    
+    // 根据复选框状态显示/隐藏轨道
+    if (cameraTrack) {
+        cameraTrack.style.display = elements.showCamera.checked ? 'flex' : 'none';
+    }
+    if (lightingTrack) {
+        lightingTrack.style.display = elements.showLighting.checked ? 'flex' : 'none';
+    }
+    if (colorTrack) {
+        colorTrack.style.display = elements.showColor.checked ? 'flex' : 'none';
+    }
+    
+    console.log('轨道显示状态更新:', {
+        camera: elements.showCamera.checked,
+        lighting: elements.showLighting.checked,
+        color: elements.showColor.checked
+    });
 }
 
 // ========== 启动 ==========

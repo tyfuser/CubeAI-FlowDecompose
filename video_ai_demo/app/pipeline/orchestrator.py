@@ -398,7 +398,7 @@ class PipelineOrchestrator:
 需要分析的特征：
 {enabled_desc}
 
-请输出JSON格式：
+请输出JSON格式，包含所有需要分析的特征：
 
 ```json
 [
@@ -414,8 +414,17 @@ class PipelineOrchestrator:
   {{
     "category": "lighting",
     "type": "natural",
-    "value": "自然光",
+    "value": "自然光从侧面照射",
     "confidence": 0.90,
+    "evidence": {{
+      "time_ranges_ms": [[{start_ms}, {end_ms}]]
+    }}
+  }},
+  {{
+    "category": "color_grading",
+    "type": "warm_tone",
+    "value": "暖色调，高饱和度",
+    "confidence": 0.88,
     "evidence": {{
       "time_ranges_ms": [[{start_ms}, {end_ms}]]
     }}
@@ -424,9 +433,11 @@ class PipelineOrchestrator:
 ```
 
 要求：
-1. 每个feature的value只描述一个特征
-2. confidence为0-1的数值
-3. 只输出JSON数组
+1. 必须分析所有启用的特征类别（camera_motion、lighting、color_grading）
+2. 每个category至少输出一个特征
+3. 每个feature的value只描述一个特征
+4. confidence为0-1的数值
+5. 只输出JSON数组，不要其他文字
 """
     
     def _update_progress(self, stage: str, percent: float, message: str):

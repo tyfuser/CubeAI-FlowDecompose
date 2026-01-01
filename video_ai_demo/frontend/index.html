@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Video AI Analysis - 视频智能分析</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎬</text></svg>">
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
@@ -82,15 +83,16 @@
                     </div>
                     <div class="option-group">
                         <label class="checkbox-label">
-                            <input type="checkbox" checked> 运镜分析
+                            <input type="checkbox" id="show-camera" checked> 运镜分析
                         </label>
                         <label class="checkbox-label">
-                            <input type="checkbox" checked> 光线分析
+                            <input type="checkbox" id="show-lighting" checked> 光线分析
                         </label>
                         <label class="checkbox-label">
-                            <input type="checkbox" checked> 调色分析
+                            <input type="checkbox" id="show-color" checked> 调色分析
                         </label>
                     </div>
+                    <p class="option-hint">💡 后端会分析所有特征，复选框只控制显示</p>
                 </div>
 
                 <!-- 开始分析按钮 -->
