@@ -1,0 +1,8 @@
+{
+  "name": "Rubik AI (魔方 AI)",
+  "description": "An AI-powered short video disassembly and creation tool focusing on extracting viral factors from Douyin videos and empowering creators with structured scripts and storyboards.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
