@@ -1,4 +1,4 @@
-# Intuition-X 魔方 AI - 项目总文档
+# Cube AI 魔方 AI - 项目总文档
 
 <div align="center">
 
@@ -36,13 +36,13 @@
 
 ## 🎯 项目概述
 
-**Intuition-X (魔方 AI)** 是一个专业的视频分析与创作辅助平台，利用多模态AI技术，帮助内容创作者深度分析视频特性、学习拍摄技巧、生成创作脚本，提升视频创作效率和质量。
+**CubeAI (魔方 AI)** 是一个专业的视频分析与创作辅助平台，利用多模态AI技术，帮助内容创作者深度分析视频特性、学习拍摄技巧、生成创作脚本，提升视频创作效率和质量。
 
 ### 项目信息
 
 | 项目 | 信息 |
 |------|------|
-| **名称** | Intuition-X / 魔方 AI (Rubik AI Engine) |
+| **名称** | CubeAI-X / 魔方 AI (Rubik AI Engine) |
 | **版本** | v2.0.0 |
 | **状态** | ✅ 生产就绪 |
 | **开发模式** | 前后端分离 |
@@ -334,7 +334,7 @@
 ## 📁 项目结构
 
 ```
-Intuition-X/
+Cube AI/
 │
 ├── Backend/                          # 后端服务
 │   └── video_ai_demo/
@@ -476,7 +476,7 @@ Intuition-X/
 
 ```bash
 git clone <repository-url>
-cd Intuition-X
+cd Cube AI
 ```
 
 #### 2️⃣ 后端配置
@@ -698,13 +698,13 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 ```bash
 # 构建镜像
-docker build -t intuition-x-backend .
+docker build -t Cube AI-backend .
 
 # 运行容器
 docker run -d -p 8000:8000 \
   -v $(pwd)/data:/app/data \
   -e MM_LLM_API_KEY=your_key \
-  intuition-x-backend
+  Cube AI-backend
 ```
 
 **方式 2: 使用 Systemd（Linux）**
@@ -712,13 +712,13 @@ docker run -d -p 8000:8000 \
 ```ini
 # /etc/systemd/system/intuition-backend.service
 [Unit]
-Description=Intuition-X Backend Service
+Description=Cube AI Backend Service
 After=network.target
 
 [Service]
 Type=simple
 User=www-data
-WorkingDirectory=/var/www/intuition-x/Backend/video_ai_demo
+WorkingDirectory=/var/www/Cube AI/Backend/video_ai_demo
 Environment="PATH=/usr/local/bin:/usr/bin:/bin"
 ExecStart=/usr/local/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
 Restart=always
@@ -765,7 +765,7 @@ server {
     listen 80;
     server_name your-domain.com;
     
-    root /var/www/intuition-x/frontend/dist;
+    root /var/www/Cube AI/frontend/dist;
     index index.html;
     
     # SPA 路由支持
@@ -811,8 +811,8 @@ CMD ["nginx", "-g", "daemon off;"]
 
 ```bash
 # 构建和运行
-docker build -t intuition-x-frontend .
-docker run -d -p 3000:80 intuition-x-frontend
+docker build -t Cube AI-frontend .
+docker run -d -p 3000:80 Cube AI-frontend
 ```
 
 **方式 3: 部署到 Vercel**
@@ -1277,7 +1277,7 @@ location / {
 ```bash
 # Fork 到你的账号，然后克隆
 git clone <your-fork-url>
-cd Intuition-X
+cd Cube AI
 ```
 
 2. **创建功能分支**
@@ -1393,9 +1393,9 @@ npm install
 
 ## 📞 联系方式
 
-- **项目主页**: [GitHub Repository](https://github.com/your-repo/intuition-x)
-- **问题反馈**: [GitHub Issues](https://github.com/your-repo/intuition-x/issues)
-- **邮箱**: dev@intuition-x.com
+- **项目主页**: [GitHub Repository](https://github.com/your-repo/Cube AI)
+- **问题反馈**: [GitHub Issues](https://github.com/your-repo/Cube AI/issues)
+- **邮箱**: dev@Cube AI.com
 - **文档**: 见 `Backend/video_ai_demo/` 和 `frontend/` 目录
 
 ---
@@ -1407,7 +1407,7 @@ npm install
 ```
 MIT License
 
-Copyright (c) 2025 Intuition-X Team
+Copyright (c) 2025 Jumping_Cats Team
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -1432,7 +1432,7 @@ SOFTWARE.
 
 ## 🎉 结语
 
-**Intuition-X (魔方 AI)** 致力于为视频创作者提供专业的 AI 分析和创作辅助工具。
+**Cube AI (魔方 AI)** 致力于为视频创作者提供专业的 AI 分析和创作辅助工具。
 
 我们相信，通过技术的力量，可以让每个人都能创作出更优质的视频内容。
 
@@ -1442,9 +1442,9 @@ SOFTWARE.
 
 <div align="center">
 
-**Intuition-X - 智能视频分析与创作辅助平台**
+**Cube AI - 智能视频分析与创作辅助平台**
 
-Made with ❤️ by Intuition-X Team
+Made with ❤️ by Jumping_Cats Team
 
 [开始使用](#-快速开始) • [查看文档](#-开发文档) • [反馈问题](#-联系方式)
 
