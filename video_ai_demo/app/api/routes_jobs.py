@@ -16,6 +16,23 @@ from ..core.logging import logger
 router = APIRouter(prefix="/v1/video-analysis", tags=["jobs"])
 
 
+# ===== 历史记录响应模型 =====
+
+class HistoryItem(BaseModel):
+    """历史记录项"""
+    job_id: str
+    title: Optional[str] = None
+    status: str
+    learning_points: List[str] = []
+    segment_count: Optional[int] = None
+    duration_sec: Optional[float] = None
+    thumbnail_url: Optional[str] = None
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
 # ===== 请求模型 =====
 
 class VideoSource(BaseModel):
@@ -222,4 +239,115 @@ async def get_job(job_id: str):
             )
         
         return response
+
+
+@router.get("/history", response_model=List[HistoryItem])
+async def get_history(limit: int = 50):
+    """
+    获取历史记录列表
+    
+    Args:
+        limit: 返回数量限制，默认50
+    
+    Returns:
+        历史记录列表
+    """
+    try:
+        with get_db() as db:
+            job_repo = JobRepository(db)
+            jobs = job_repo.list_history(limit=limit)
+            
+            history_items = []
+            for job in jobs:
+                # 解析结果获取统计信息
+                segment_count = None
+                duration_sec = None
+                
+                if job.result_json:
+                    try:
+                        result = json.loads(job.result_json)
+                        target = result.get("target", {})
+                        segments = target.get("segments", [])
+                        segment_count = len(segments)
+                        if segments:
+                            duration_sec = segments[-1].get("end_ms", 0) / 1000
+                    except:
+                        pass
+                
+                # 解析学习要点
+                learning_points = []
+                if job.learning_points_json:
+                    try:
+                        learning_points = json.loads(job.learning_points_json)
+                    except:
+                        pass
+                
+                history_items.append(HistoryItem(
+                    job_id=job.id,
+                    title=job.title,
+                    status=job.status.value,
+                    learning_points=learning_points,
+                    segment_count=segment_count,
+                    duration_sec=duration_sec,
+                    thumbnail_url=job.thumbnail_url,
+                    created_at=job.created_at
+                ))
+            
+            return history_items
+    
+    except Exception as e:
+        logger.error(f"获取历史记录失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"获取历史记录失败: {str(e)}")
+
+
+@router.delete("/jobs/{job_id}")
+async def delete_job(job_id: str):
+    """
+    删除指定的 Job 及其相关数据
+    
+    Args:
+        job_id: Job ID
+    
+    Returns:
+        删除结果
+    """
+    try:
+        import shutil
+        from pathlib import Path
+        from ..core.config import settings
+        
+        with get_db() as db:
+            job_repo = JobRepository(db)
+            
+            # 检查 Job 是否存在
+            job = job_repo.get(job_id)
+            if not job:
+                raise HTTPException(status_code=404, detail=f"Job {job_id} 不存在")
+            
+            # 删除文件系统中的数据
+            job_dir = settings.data_dir / "jobs" / job_id
+            if job_dir.exists():
+                try:
+                    shutil.rmtree(job_dir)
+                    logger.info(f"已删除 Job {job_id} 的文件: {job_dir}")
+                except Exception as e:
+                    logger.warning(f"删除 Job {job_id} 文件失败: {str(e)}")
+            
+            # 从数据库中删除 Job（级联删除相关的 assets 和 artifacts）
+            db.delete(job)
+            db.commit()
+            
+            logger.info(f"Job {job_id} 已成功删除")
+            
+            return {
+                "success": True,
+                "message": f"Job {job_id} 已删除",
+                "job_id": job_id
+            }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"删除 Job {job_id} 失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"删除失败: {str(e)}")
 

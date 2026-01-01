@@ -485,3 +485,136 @@ class MMHLLMClient:
         """尝试修正结果（暂不实现，直接返回原结果）"""
         logger.warning("结果修正功能暂未实现")
         return result
+    
+    async def summarize_video_analysis(
+        self,
+        segments: List[Dict[str, Any]],
+        duration_ms: float
+    ) -> Dict[str, Any]:
+        """
+        总结视频分析结果
+        生成任务标题和学习要点
+        
+        Args:
+            segments: 分析出的片段列表
+            duration_ms: 视频总时长（毫秒）
+        
+        Returns:
+            {
+                "title": "任务标题",
+                "learning_points": ["要点1", "要点2", "要点3"]
+            }
+        """
+        logger.info(f"开始总结视频分析结果，共{len(segments)}个片段")
+        
+        # 构建总结提示词
+        prompt = self._build_summary_prompt(segments, duration_ms)
+        
+        # 调用 LLM（不传图片，只基于特征数据）
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(
+                    f"{self.base_url}/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": self.model,
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": prompt
+                            }
+                        ]
+                    }
+                )
+                response.raise_for_status()
+                
+                result = response.json()
+                
+                if "choices" in result and len(result["choices"]) > 0:
+                    message = result["choices"][0].get("message", {})
+                    content = message.get("content", "")
+                    
+                    # 解析JSON
+                    summary = self._extract_json_from_text(content)
+                    
+                    # 校验格式
+                    if isinstance(summary, dict) and "title" in summary and "learning_points" in summary:
+                        logger.info(f"总结完成: {summary['title']}")
+                        return summary
+                    else:
+                        raise LLMAPIError("总结结果格式不正确")
+                
+                raise LLMAPIError("API响应格式异常")
+        
+        except httpx.HTTPError as e:
+            logger.error(f"总结视频失败: {str(e)}")
+            # 返回默认值
+            return {
+                "title": f"视频分析 - {len(segments)}个镜头",
+                "learning_points": [
+                    "这个视频包含多个镜头，展现了不同的拍摄技巧",
+                    "注意观察不同镜头的运镜、光线和调色变化"
+                ]
+            }
+    
+    def _build_summary_prompt(
+        self,
+        segments: List[Dict[str, Any]],
+        duration_ms: float
+    ) -> str:
+        """构建总结提示词"""
+        
+        # 收集所有特征
+        camera_features = []
+        lighting_features = []
+        color_features = []
+        
+        for seg in segments:
+            for feature in seg.get("features", []):
+                if feature["category"] == "camera_motion":
+                    camera_features.append(feature["value"])
+                elif feature["category"] == "lighting":
+                    lighting_features.append(feature["value"])
+                elif feature["category"] == "color_grading":
+                    color_features.append(feature["value"])
+        
+        # 统计信息
+        stats = {
+            "segment_count": len(segments),
+            "duration_sec": duration_ms / 1000,
+            "camera_features": list(set(camera_features)),
+            "lighting_features": list(set(lighting_features)),
+            "color_features": list(set(color_features))
+        }
+        
+        return f"""请为这个视频分析任务生成一个简洁的标题和3-5个学习要点。
+
+视频统计信息：
+- 总时长: {stats['duration_sec']:.1f}秒
+- 镜头数: {stats['segment_count']}个
+- 运镜特征: {', '.join(stats['camera_features'][:5]) if stats['camera_features'] else '无'}
+- 光线特征: {', '.join(stats['lighting_features'][:5]) if stats['lighting_features'] else '无'}
+- 调色特征: {', '.join(stats['color_features'][:5]) if stats['color_features'] else '无'}
+
+请输出JSON格式：
+
+```json
+{{
+  "title": "简短的任务标题（10-20字，描述视频的主要风格或内容）",
+  "learning_points": [
+    "学习要点1：描述这个视频中值得学习的拍摄技巧或特征",
+    "学习要点2：另一个值得注意的技术亮点",
+    "学习要点3：镜头语言或视觉风格的总结"
+  ]
+}}
+```
+
+要求：
+1. title要简洁、专业、有吸引力
+2. learning_points要具体、实用、有指导意义
+3. 每个要点控制在30字以内
+4. 只输出JSON，不要其他文字
+"""

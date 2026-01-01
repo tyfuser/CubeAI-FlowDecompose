@@ -18,6 +18,7 @@ from ..db.models import JobStatus, Asset, AssetRole, Artifact, ArtifactType
 from ..core.config import settings
 from ..core.errors import JobExecutionError
 from ..core.logging import logger
+from ..integrations.mm_llm_client import MMHLLMClient
 
 
 class PipelineOrchestrator:
@@ -530,6 +531,37 @@ class PipelineOrchestrator:
         with get_db() as db:
             job_repo = JobRepository(db)
             job_repo.save_partial_result(self.job_id, partial_result)
+    
+    async def _generate_summary(self, result: Dict[str, Any]) -> Dict[str, Any]:
+        """生成任务总结（标题和学习要点）"""
+        try:
+            # 提取segments和duration
+            target = result.get("target", {})
+            segments = target.get("segments", [])
+            
+            if not segments:
+                return {
+                    "title": "视频分析",
+                    "learning_points": []
+                }
+            
+            # 计算总时长
+            duration_ms = segments[-1].get("end_ms", 0) if segments else 0
+            
+            # 调用LLM生成总结
+            llm_config = self.job_config.get("options", {}).get("llm", {})
+            client = MMHLLMClient(model=llm_config.get("model"))
+            
+            summary = await client.summarize_video_analysis(segments, duration_ms)
+            return summary
+        
+        except Exception as e:
+            logger.error(f"生成总结失败: {str(e)}")
+            # 返回默认值
+            return {
+                "title": "视频分析",
+                "learning_points": ["分析完成"]
+            }
 
 
 # 全局Job运行器（简单版本：内存字典）
@@ -562,13 +594,37 @@ async def _run_job(job_id: str, orchestrator: PipelineOrchestrator):
     try:
         result = await orchestrator.execute()
         
-        # 更新状态为succeeded
+        # 生成任务总结（标题和学习要点）
+        summary = await orchestrator._generate_summary(result)
+        
+        # 获取第一个关键帧作为缩略图
+        thumbnail_url = None
+        target = result.get("target", {})
+        keyframes = target.get("keyframes", [])
+        if keyframes:
+            # 取第一个关键帧
+            first_keyframe = keyframes[0]
+            keyframe_path = Path(first_keyframe["keyframe_path"])
+            # 转换为相对于data目录的路径，用于前端访问
+            # 例如: /data/jobs/job_xxx/target/keyframes/target_seg_001_key.jpg
+            relative_path = keyframe_path.relative_to(settings.data_dir)
+            thumbnail_url = f"/data/{relative_path.as_posix()}"
+            logger.info(f"使用第一个关键帧作为缩略图: {thumbnail_url}")
+        
+        # 更新状态为succeeded，并保存总结
         with get_db() as db:
             job_repo = JobRepository(db)
             job_repo.update_status(job_id, JobStatus.SUCCEEDED)
             job_repo.update_progress(job_id, "completed", 100, "完成")
+            # 保存总结信息（包括缩略图）
+            job_repo.update_summary(
+                job_id,
+                title=summary.get("title"),
+                learning_points=summary.get("learning_points", []),
+                thumbnail_url=thumbnail_url
+            )
         
-        logger.info(f"Job {job_id} 完成")
+        logger.info(f"Job {job_id} 完成，标题: {summary.get('title')}")
     
     except Exception as e:
         logger.error(f"Job {job_id} 失败: {str(e)}", exc_info=True)

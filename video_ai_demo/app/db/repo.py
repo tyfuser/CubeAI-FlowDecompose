@@ -89,6 +89,38 @@ class JobRepository:
         job.updated_at = datetime.utcnow()
         self.db.flush()
         return job
+    
+    def update_summary(
+        self,
+        job_id: str,
+        title: Optional[str] = None,
+        learning_points: Optional[List[str]] = None,
+        thumbnail_url: Optional[str] = None
+    ) -> Job:
+        """更新Job总结信息"""
+        job = self.get_or_raise(job_id)
+        if title:
+            job.title = title
+        if learning_points:
+            job.learning_points_json = json.dumps(learning_points, ensure_ascii=False)
+        if thumbnail_url:
+            job.thumbnail_url = thumbnail_url
+        job.updated_at = datetime.utcnow()
+        self.db.flush()
+        return job
+    
+    def list_history(self, limit: int = 50) -> List[Job]:
+        """获取历史记录列表"""
+        return self.db.query(Job).order_by(Job.created_at.desc()).limit(limit).all()
+    
+    def delete(self, job_id: str) -> bool:
+        """删除Job"""
+        job = self.get(job_id)
+        if not job:
+            return False
+        self.db.delete(job)
+        self.db.flush()
+        return True
 
 
 class AssetRepository:

@@ -13,7 +13,8 @@ const state = {
     isPlaying: false,
     duration: 0,
     isStreaming: false,
-    streamingSegments: []
+    streamingSegments: [],
+    historyList: []
 };
 
 // ========== DOM元素 ==========
@@ -115,6 +116,7 @@ function init() {
 
 // ========== 模式切换 ==========
 function handleModeSwitch(mode) {
+    const previousMode = state.mode;
     state.mode = mode;
     
     // 更新UI
@@ -122,11 +124,186 @@ function handleModeSwitch(mode) {
         tab.classList.toggle('active', tab.dataset.mode === mode);
     });
     
-    // 显示/隐藏用户视频卡片
-    elements.userVideoCard.style.display = mode === 'compare' ? 'block' : 'none';
+    // 根据模式显示不同界面
+    if (mode === 'learn') {
+        // 如果从 history 切换回 learn，恢复界面
+        if (previousMode === 'history') {
+            document.querySelector('.sidebar').style.display = 'block';
+            
+            // 重建 Learn 界面结构
+            restoreLearnView();
+        }
+        updateAnalyzeButton();
+    } else if (mode === 'history') {
+        // 显示History界面（不影响后台运行的任务）
+        showHistoryView();
+    }
+}
+
+// ========== 恢复 Learn 界面 ==========
+function restoreLearnView() {
+    const mainContent = document.querySelector('.main-content');
     
-    // 更新按钮状态
-    updateAnalyzeButton();
+    // 重建完整的Learn界面结构
+    mainContent.innerHTML = `
+        <div id="empty-state" class="empty-state" style="display: none;">
+            <div class="empty-icon">🎬</div>
+            <div class="empty-title">开始分析你的视频</div>
+            <div class="empty-text">上传视频，AI 将自动拆解镜头并分析特征</div>
+        </div>
+        
+        <div id="loading-state" class="loading-state" style="display: none;">
+            <div class="loading-spinner"></div>
+            <div class="loading-title">分析中...</div>
+            <div class="loading-text">这可能需要几分钟</div>
+            <div id="loading-progress" class="loading-text"></div>
+            <div class="progress-bar">
+                <div id="progress-fill" class="progress-fill"></div>
+            </div>
+        </div>
+        
+        <div id="timeline-container" class="timeline-container" style="display: none;">
+            <div class="timeline-header">
+                <div>
+                    <h2 class="timeline-title">
+                        时间轴
+                        <span id="timeline-subtitle" class="timeline-subtitle"></span>
+                    </h2>
+                </div>
+                <div class="timeline-controls">
+                    <button id="btn-zoom-in" class="btn-secondary">🔍+</button>
+                    <button id="btn-zoom-out" class="btn-secondary">🔍-</button>
+                    <button id="btn-export" class="btn-secondary">💾 导出</button>
+                </div>
+            </div>
+            
+            <div class="fixed-track">
+                <div class="video-preview-track">
+                    <div id="video-preview-content" class="video-preview-content">
+                        <video id="preview-video" class="preview-video"></video>
+                    </div>
+                </div>
+                
+                <div class="playback-controls">
+                    <button id="btn-play" class="btn-play">▶</button>
+                    <div id="time-display" class="time-display">00:00.000</div>
+                    <div id="playback-slider" class="playback-slider">
+                        <div id="playback-progress" class="playback-progress"></div>
+                        <div id="playback-handle" class="playback-handle"></div>
+                    </div>
+                    <div id="time-total" class="time-display">00:00.000</div>
+                    <button id="btn-fullscreen" class="btn-secondary btn-small">⛶</button>
+                    <button id="btn-toggle-video" class="btn-secondary btn-small">👁️</button>
+                </div>
+            </div>
+            
+            <div id="timeline-ruler" class="timeline-ruler"></div>
+            
+            <div id="tracks-container" class="tracks-container">
+                <div id="playhead" class="playhead" style="display: none;"></div>
+                
+                <div class="track">
+                    <div class="track-header">
+                        <span class="track-icon">🎬</span>
+                        <span class="track-name">视频片段</span>
+                    </div>
+                    <div id="video-segments" class="track-content"></div>
+                </div>
+                
+                <div class="track">
+                    <div class="track-header">
+                        <span class="track-icon">📹</span>
+                        <span class="track-name">运镜</span>
+                    </div>
+                    <div id="camera-track" class="track-content"></div>
+                </div>
+                
+                <div class="track">
+                    <div class="track-header">
+                        <span class="track-icon">💡</span>
+                        <span class="track-name">光线</span>
+                    </div>
+                    <div id="lighting-track" class="track-content"></div>
+                </div>
+                
+                <div class="track">
+                    <div class="track-header">
+                        <span class="track-icon">🎨</span>
+                        <span class="track-name">调色</span>
+                    </div>
+                    <div id="color-track" class="track-content"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 详情面板 -->
+        <div class="detail-panel" id="detail-panel">
+            <div class="detail-header">
+                <h3 class="detail-title">镜头详细分析</h3>
+                <button class="btn-close" id="btn-close-detail">×</button>
+            </div>
+            <div class="detail-content" id="detail-content">
+                <div class="detail-loading">加载中...</div>
+            </div>
+        </div>
+    `;
+    
+    // 重新初始化所有元素引用
+    elements.emptyState = document.getElementById('empty-state');
+    elements.loadingState = document.getElementById('loading-state');
+    elements.loadingProgress = document.getElementById('loading-progress');
+    elements.progressFill = document.getElementById('progress-fill');
+    elements.timelineContainer = document.getElementById('timeline-container');
+    elements.timelineSubtitle = document.getElementById('timeline-subtitle');
+    elements.timelineRuler = document.getElementById('timeline-ruler');
+    elements.videoSegments = document.getElementById('video-segments');
+    elements.cameraTrack = document.getElementById('camera-track');
+    elements.lightingTrack = document.getElementById('lighting-track');
+    elements.colorTrack = document.getElementById('color-track');
+    
+    // 确保详情面板引用也存在（虽然它不在main-content里，但保险起见）
+    elements.detailPanel = document.getElementById('detail-panel');
+    elements.detailContent = document.getElementById('detail-content');
+    elements.btnCloseDetail = document.getElementById('btn-close-detail');
+    
+    // 重新绑定详情面板关闭按钮
+    if (elements.btnCloseDetail) {
+        elements.btnCloseDetail.addEventListener('click', closeDetailPanel);
+    }
+    
+    // 重新初始化视频播放器
+    setupVideoPlayer();
+    
+    // 重新初始化时间标尺点击
+    setupTimelineRulerClick();
+    
+    // 重新初始化轨道显示控制
+    setupTrackVisibility();
+    
+    // 重新绑定按钮事件
+    const btnExport = document.getElementById('btn-export');
+    const btnZoomIn = document.getElementById('btn-zoom-in');
+    const btnZoomOut = document.getElementById('btn-zoom-out');
+    
+    if (btnExport) btnExport.addEventListener('click', handleExport);
+    if (btnZoomIn) btnZoomIn.addEventListener('click', () => handleZoom(1.2));
+    if (btnZoomOut) btnZoomOut.addEventListener('click', () => handleZoom(0.8));
+    
+    // 根据状态显示对应界面
+    if (state.analysisResult) {
+        // 如果有分析结果，显示时间轴
+        console.log('恢复之前的分析结果显示，segments数量:', state.analysisResult.target?.segments?.length);
+        showTimeline(state.analysisResult, false);
+        console.log('showTimeline 调用完成');
+    } else if (state.currentJobId) {
+        // 如果有当前任务ID，可能正在运行
+        console.log('有正在运行的任务，显示加载状态');
+        showLoading();
+    } else {
+        // 否则显示空状态
+        console.log('显示空状态');
+        showEmpty();
+    }
 }
 
 // ========== 文件上传 ==========
@@ -427,9 +604,15 @@ function renderTimeRuler(totalDuration) {
 
 function renderVideoSegments(segments, totalDuration, isStreaming = false) {
     const container = elements.videoSegments;
-    container.innerHTML = '';
+    if (!container) {
+        console.error('videoSegments 容器未找到！');
+        return;
+    }
     
-    segments.forEach(segment => {
+    container.innerHTML = '';
+    console.log('renderVideoSegments: 渲染', segments.length, '个片段');
+    
+    segments.forEach((segment, index) => {
         const analyzing = segment.analyzing || false;
         const div = createSegmentElement(
             segment,
@@ -443,25 +626,41 @@ function renderVideoSegments(segments, totalDuration, isStreaming = false) {
         
         // 点击视频segment显示完整分析
         if (!analyzing) {
-            div.addEventListener('click', () => {
-                console.log('点击segment:', segment);
+            // 添加测试属性
+            div.setAttribute('data-segment-id', segment.segment_id);
+            div.setAttribute('data-clickable', 'true');
+            
+            div.addEventListener('click', (e) => {
+                e.stopPropagation(); // 阻止事件冒泡
+                console.log('🎬 片段被点击！segment:', segment.segment_id);
+                console.log('事件对象:', e);
+                console.log('当前目标:', e.currentTarget);
                 showSegmentDetail(segment);
             });
+            
+            // 添加 mouseenter 测试
+            div.addEventListener('mouseenter', () => {
+                console.log('鼠标进入片段:', segment.segment_id);
+            });
+            
+            console.log(`✓ 已为 segment ${segment.segment_id} (索引${index}) 添加点击事件`);
         }
         
         container.appendChild(div);
     });
+    
+    console.log(`✓ 共渲染 ${segments.length} 个视频片段，容器内元素数: ${container.children.length}`);
 }
 
 function renderFeatureTrack(segments, totalDuration, category, container, isStreaming = false) {
     container.innerHTML = '';
     
-    segments.forEach(segment => {
+    segments.forEach((segment, segIndex) => {
         const analyzing = segment.analyzing || false;
         const features = segment.features.filter(f => f.category === category);
         
         if (features.length > 0) {
-            features.forEach(feature => {
+            features.forEach((feature, featIndex) => {
                 const div = createSegmentElement(
                     segment,
                     totalDuration,
@@ -472,7 +671,27 @@ function renderFeatureTrack(segments, totalDuration, category, container, isStre
                     false
                 );
                 
-                div.addEventListener('click', () => showFeatureDetail(feature, segment));
+                // 添加测试属性
+                div.setAttribute('data-segment-id', segment.segment_id);
+                div.setAttribute('data-feature-type', feature.type);
+                div.setAttribute('data-category', category);
+                div.setAttribute('data-clickable', 'true');
+                
+                div.addEventListener('click', (e) => {
+                    e.stopPropagation(); // 阻止事件冒泡
+                    console.log(`🎨 特征片段被点击！category: ${category}, type: ${feature.type}, segment: ${segment.segment_id}`);
+                    console.log('事件对象:', e);
+                    console.log('当前目标:', e.currentTarget);
+                    showFeatureDetail(feature, segment);
+                });
+                
+                // 添加 mouseenter 测试
+                div.addEventListener('mouseenter', () => {
+                    console.log(`鼠标进入特征片段: ${category} - ${feature.type} (seg${segIndex}-feat${featIndex})`);
+                });
+                
+                console.log(`✓ 已为 ${category} feature ${feature.type} (seg${segIndex}-feat${featIndex}) 添加点击事件`);
+                
                 container.appendChild(div);
             });
         } else if (analyzing) {
@@ -489,6 +708,8 @@ function renderFeatureTrack(segments, totalDuration, category, container, isStre
             container.appendChild(div);
         }
     });
+    
+    console.log(`✓ 共渲染 ${category} 轨道，容器内元素数: ${container.children.length}`);
 }
 
 function createSegmentElement(segment, totalDuration, className, label, value, confidence = null, analyzing = false) {
@@ -535,13 +756,21 @@ function getCategoryClass(category) {
 // ========== 详情面板 ==========
 function showSegmentDetail(segment) {
     console.log('showSegmentDetail 被调用:', segment);
+    console.log('elements.detailPanel:', elements.detailPanel);
+    console.log('document.getElementById("detail-panel"):', document.getElementById('detail-panel'));
     
-    if (!elements.detailPanel) {
-        console.error('detailPanel 元素未找到');
+    // 确保获取最新的元素引用
+    const detailPanel = document.getElementById('detail-panel');
+    const detailContent = document.getElementById('detail-content');
+    
+    if (!detailPanel) {
+        console.error('detailPanel 元素未找到！');
         return;
     }
     
-    elements.detailPanel.classList.add('open');
+    console.log('detailPanel 找到了，准备打开');
+    detailPanel.classList.add('open');
+    console.log('detailPanel.classList:', detailPanel.classList);
     
     // 聚焦到该segment
     focusOnSegment(segment);
@@ -554,7 +783,7 @@ function showSegmentDetail(segment) {
     console.log('特征数量:', {camera: cameraFeatures.length, lighting: lightingFeatures.length, color: colorFeatures.length});
     
     try {
-        elements.detailContent.innerHTML = `
+        detailContent.innerHTML = `
             <div class="detail-section">
                 <h4 class="section-title">📹 镜头信息</h4>
                 <div class="info-item">
@@ -578,7 +807,7 @@ function showSegmentDetail(segment) {
         console.log('详情内容已更新');
     } catch (error) {
         console.error('渲染详情内容时出错:', error);
-        elements.detailContent.innerHTML = `
+        detailContent.innerHTML = `
             <div class="detail-section">
                 <p>加载详情时出错: ${error.message}</p>
             </div>
@@ -587,12 +816,23 @@ function showSegmentDetail(segment) {
 }
 
 function showFeatureDetail(feature, segment) {
-    elements.detailPanel.classList.add('open');
+    console.log('showFeatureDetail 被调用:', feature, segment);
+    
+    // 确保获取最新的元素引用
+    const detailPanel = document.getElementById('detail-panel');
+    const detailContent = document.getElementById('detail-content');
+    
+    if (!detailPanel) {
+        console.error('detailPanel 元素未找到！');
+        return;
+    }
+    
+    detailPanel.classList.add('open');
     
     // 聚焦到该segment
     focusOnSegment(segment);
     
-    elements.detailContent.innerHTML = `
+    detailContent.innerHTML = `
         <div class="detail-section">
             <h4 class="section-title">📹 镜头信息</h4>
             <div class="info-item">
@@ -1108,6 +1348,9 @@ function setupTimelineRulerClick() {
             // 如果点击的是轨道标题区域，忽略
             if (e.target.closest('.track-header')) return;
             
+            // 如果点击的是片段（segment），忽略（让片段自己的事件处理）
+            if (e.target.closest('.segment')) return;
+            
             // 计算点击位置对应的时间
             const rect = element.getBoundingClientRect();
             const clickX = e.clientX - rect.left;
@@ -1154,6 +1397,302 @@ function updateTrackVisibility() {
         lighting: elements.showLighting.checked,
         color: elements.showColor.checked
     });
+}
+
+// ========== 历史记录 ==========
+async function showHistoryView() {
+    // 隐藏Learn界面（但不清空，保持后台任务继续）
+    document.querySelector('.sidebar').style.display = 'none';
+    const mainContent = document.querySelector('.main-content');
+    
+    // 显示加载状态
+    mainContent.innerHTML = `
+        <div class="history-container">
+            <div class="history-header">
+                <h2 class="history-title">📚 分析历史</h2>
+                <div style="display: flex; gap: 8px;">
+                    ${state.currentJobId ? '<button class="btn-secondary" onclick="backToCurrentJob()">⬅️ 返回当前任务</button>' : ''}
+                    <button class="btn-secondary" onclick="refreshHistory()">🔄 刷新</button>
+                </div>
+            </div>
+            <div class="loading-state" style="display: flex;">
+                <div class="loading-spinner"></div>
+                <div class="loading-title">加载历史记录...</div>
+            </div>
+        </div>
+    `;
+    
+    // 加载历史记录
+    await loadHistory();
+}
+
+// 返回当前正在进行的任务
+function backToCurrentJob() {
+    if (!state.currentJobId) {
+        alert('没有正在进行的任务');
+        return;
+    }
+    
+    // 切换回 learn 模式
+    elements.navTabs.forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.mode === 'learn');
+    });
+    state.mode = 'learn';
+    
+    // 显示 learn 界面
+    document.querySelector('.sidebar').style.display = 'block';
+    
+    // 重新加载当前任务
+    loadHistoryJob(state.currentJobId);
+}
+
+async function loadHistory() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/v1/video-analysis/history?limit=50`);
+        if (!response.ok) throw new Error('加载历史记录失败');
+        
+        const history = await response.json();
+        state.historyList = history;
+        
+        renderHistory(history);
+    } catch (error) {
+        console.error('加载历史记录失败:', error);
+        const mainContent = document.querySelector('.main-content');
+        mainContent.innerHTML = `
+            <div class="history-container">
+                <div class="history-header">
+                    <h2 class="history-title">📚 分析历史</h2>
+                    <button class="btn-secondary" onclick="refreshHistory()">🔄 刷新</button>
+                </div>
+                <div class="empty-state" style="display: flex;">
+                    <div class="empty-icon">⚠️</div>
+                    <div class="empty-title">加载失败</div>
+                    <div class="empty-text">${error.message}</div>
+                </div>
+            </div>
+        `;
+    }
+}
+
+function renderHistory(history) {
+    const mainContent = document.querySelector('.main-content');
+    
+    if (history.length === 0) {
+        mainContent.innerHTML = `
+            <div class="history-container">
+                <div class="history-header">
+                    <h2 class="history-title">📚 分析历史</h2>
+                    <button class="btn-secondary" onclick="refreshHistory()">🔄 刷新</button>
+                </div>
+                <div class="empty-state" style="display: flex;">
+                    <div class="empty-icon">📝</div>
+                    <div class="empty-title">暂无历史记录</div>
+                    <div class="empty-text">开始分析你的第一个视频吧</div>
+                </div>
+            </div>
+        `;
+        return;
+    }
+    
+    const historyHTML = history.map(item => {
+        const statusBadge = {
+            'succeeded': '<span class="status-badge status-success">✓ 完成</span>',
+            'failed': '<span class="status-badge status-error">✗ 失败</span>',
+            'running': '<span class="status-badge status-running">⟳ 进行中</span>',
+            'queued': '<span class="status-badge status-queued">⋯ 排队中</span>'
+        }[item.status] || '<span class="status-badge">未知</span>';
+        
+        const learningPointsHTML = item.learning_points && item.learning_points.length > 0
+            ? item.learning_points.map(point => `<li class="learning-point">• ${point}</li>`).join('')
+            : '<li class="learning-point">暂无学习要点</li>';
+        
+        const thumbnailStyle = item.thumbnail_url 
+            ? `background-image: url('${item.thumbnail_url}');`
+            : 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);';
+        
+        return `
+            <div class="history-item">
+                <button class="btn-delete-history" onclick="deleteHistoryJob(event, '${item.job_id}')" title="删除此记录">
+                    <span class="delete-icon">🗑️</span>
+                </button>
+                <div class="history-clickable" onclick="loadHistoryJob('${item.job_id}')">
+                    <div class="history-thumbnail" style="${thumbnailStyle}">
+                        ${!item.thumbnail_url ? '<div class="thumbnail-placeholder">🎬</div>' : ''}
+                    </div>
+                    <div class="history-content">
+                        <div class="history-item-header">
+                            <h3 class="history-item-title">${item.title || '未命名任务'}</h3>
+                            ${statusBadge}
+                        </div>
+                        <div class="history-meta">
+                            <span class="meta-item">📹 ${item.segment_count || 0} 个镜头</span>
+                            <span class="meta-item">⏱️ ${item.duration_sec ? (item.duration_sec).toFixed(1) + 's' : '未知'}</span>
+                            <span class="meta-item">📅 ${formatDate(item.created_at)}</span>
+                        </div>
+                        <div class="learning-points-preview">
+                            <div class="learning-title">💡 学习要点：</div>
+                            <ul class="learning-list">
+                                ${learningPointsHTML}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    mainContent.innerHTML = `
+        <div class="history-container">
+            <div class="history-header">
+                <h2 class="history-title">📚 分析历史</h2>
+                <button class="btn-secondary" onclick="refreshHistory()">🔄 刷新</button>
+            </div>
+            <div class="history-list">
+                ${historyHTML}
+            </div>
+        </div>
+    `;
+}
+
+async function loadHistoryJob(jobId) {
+    console.log('loadHistoryJob 被调用, jobId:', jobId);
+    
+    // 切换回Learn模式并加载该Job
+    state.mode = 'learn';
+    state.currentJobId = jobId;
+    
+    // 更新导航
+    elements.navTabs.forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.mode === 'learn');
+    });
+    
+    // 显示Learn界面
+    document.querySelector('.sidebar').style.display = 'block';
+    
+    // 使用 restoreLearnView 来恢复界面
+    restoreLearnView();
+    
+    // 加载Job数据
+    showLoading();
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/v1/video-analysis/jobs/${jobId}`);
+        if (!response.ok) throw new Error('加载任务失败');
+        
+        const data = await response.json();
+        console.log('历史任务数据:', data);
+        
+        if (data.status === 'succeeded' && data.result) {
+            state.analysisResult = data.result;
+            
+            // 从服务器获取视频路径
+            // 假设视频存储在 data/jobs/{jobId}/target/input_video.mp4
+            const videoPath = `/data/jobs/${jobId}/target/input_video.mp4`;
+            
+            // 加载视频
+            const video = document.getElementById('preview-video');
+            if (video) {
+                video.src = videoPath;
+                video.load();
+                console.log('视频路径已设置:', videoPath);
+            }
+            
+            // 显示时间轴
+            showTimeline(data.result, false);
+            console.log('时间轴已显示');
+            
+        } else if (data.status === 'running') {
+            // 如果任务还在运行中
+            elements.loadingState.style.display = 'flex';
+            elements.loadingProgress.textContent = `任务进行中：${data.progress?.message || '处理中...'}`;
+            alert('该任务还在进行中，请稍后查看');
+        } else if (data.status === 'failed') {
+            throw new Error(data.error?.message || '任务失败');
+        } else {
+            throw new Error('任务未完成');
+        }
+    } catch (error) {
+        console.error('加载历史任务失败:', error);
+        alert('加载失败: ' + error.message);
+        showEmpty();
+    }
+}
+
+async function refreshHistory() {
+    await loadHistory();
+}
+
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 1) return '刚刚';
+    if (diffMins < 60) return `${diffMins}分钟前`;
+    if (diffHours < 24) return `${diffHours}小时前`;
+    if (diffDays < 7) return `${diffDays}天前`;
+    
+    return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
+}
+
+// ========== 删除历史记录 ==========
+async function deleteHistoryJob(event, jobId) {
+    // 阻止事件冒泡，避免触发卡片点击
+    event.stopPropagation();
+    
+    // 确认删除
+    const confirmed = confirm('确定要删除这条历史记录吗？\n\n删除后将无法恢复，包括：\n• 分析结果\n• 视频文件\n• 关键帧图片');
+    
+    if (!confirmed) {
+        return;
+    }
+    
+    try {
+        // 显示加载提示
+        const button = event.currentTarget;
+        const originalHTML = button.innerHTML;
+        button.innerHTML = '<span class="delete-icon">⏳</span>';
+        button.disabled = true;
+        
+        // 调用删除 API
+        const response = await fetch(`${API_BASE_URL}/v1/video-analysis/jobs/${jobId}`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) {
+            throw new Error('删除失败');
+        }
+        
+        const result = await response.json();
+        console.log('删除成功:', result);
+        
+        // 从列表中移除
+        state.historyList = state.historyList.filter(item => item.job_id !== jobId);
+        
+        // 如果删除的是当前任务，清空状态
+        if (state.currentJobId === jobId) {
+            state.currentJobId = null;
+            state.analysisResult = null;
+        }
+        
+        // 刷新历史记录列表
+        await loadHistory();
+        
+        // 显示成功提示
+        alert('✓ 删除成功');
+        
+    } catch (error) {
+        console.error('删除历史记录失败:', error);
+        alert('删除失败: ' + error.message);
+        
+        // 恢复按钮
+        const button = event.currentTarget;
+        button.innerHTML = '<span class="delete-icon">🗑️</span>';
+        button.disabled = false;
+    }
 }
 
 // ========== 启动 ==========

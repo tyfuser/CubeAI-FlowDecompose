@@ -42,6 +42,11 @@ class Job(Base):
     error_message = Column(Text)  # 错误信息
     error_details = Column(Text)  # 错误详情JSON
     
+    # 总结信息
+    title = Column(String)  # AI生成的任务标题
+    learning_points_json = Column(Text)  # 学习要点JSON数组
+    thumbnail_url = Column(String)  # 缩略图URL（可选）
+    
     # 时间戳
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

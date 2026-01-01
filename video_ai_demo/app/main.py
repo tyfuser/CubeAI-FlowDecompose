@@ -50,6 +50,13 @@ app.include_router(routes_terminology.router)
 
 # 挂载静态文件
 frontend_dir = Path(__file__).parent.parent / "frontend"
+data_dir = Path(__file__).parent.parent / "data"
+
+# 挂载 data 目录用于访问视频文件
+if data_dir.exists():
+    app.mount("/data", StaticFiles(directory=str(data_dir)), name="data")
+    logger.info(f"已挂载 data 目录: {data_dir}")
+
 if frontend_dir.exists():
     app.mount("/static", StaticFiles(directory=str(frontend_dir)), name="static")
     

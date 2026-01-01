@@ -479,7 +479,7 @@ body {
     width: 3px;
     height: 100%;
     background: #ff3b30;
-    z-index: 100;
+    z-index: 50; /* 降低 z-index，确保不会遮挡片段 */
     pointer-events: none;
     box-shadow: 0 0 10px rgba(255, 59, 48, 0.6);
     transition: left 0.1s ease-out;
@@ -594,6 +594,7 @@ body {
     cursor: pointer;
     transition: all 0.2s;
     overflow: hidden;
+    z-index: 1; /* 确保片段在上层 */
 }
 
 .segment-analyzing {
@@ -655,6 +656,7 @@ body {
     display: flex;
     flex-direction: column;
     justify-content: center;
+    pointer-events: none; /* 让点击事件穿透到父元素 */
 }
 
 .segment-label {
@@ -1080,10 +1082,225 @@ body {
     border: 1px solid rgba(191, 90, 242, 0.3);
 }
 
+/* ========== 历史记录样式 ==========  */
+.history-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: var(--spacing-lg);
+    overflow: hidden;
+}
+
+.history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-lg);
+}
+
+.history-title {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+}
+
+.history-list {
+    flex: 1;
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+    gap: var(--spacing-lg);
+    padding: var(--spacing-sm);
+}
+
+.history-item {
+    background: var(--color-surface);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    transition: all 0.3s;
+    border: 1px solid var(--color-border);
+    position: relative;
+}
+
+.history-item:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--color-primary);
+}
+
+.history-clickable {
+    cursor: pointer;
+}
+
+.btn-delete-history {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: rgba(255, 59, 48, 0.9);
+    color: white;
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    opacity: 0;
+    transition: all 0.3s;
+    box-shadow: 0 2px 8px rgba(255, 59, 48, 0.4);
+}
+
+.history-item:hover .btn-delete-history {
+    opacity: 1;
+}
+
+.btn-delete-history:hover {
+    background: rgba(255, 59, 48, 1);
+    transform: scale(1.1);
+}
+
+.btn-delete-history:active {
+    transform: scale(0.95);
+}
+
+.btn-delete-history:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.delete-icon {
+    display: block;
+    line-height: 1;
+}
+
+.history-thumbnail {
+    width: 100%;
+    height: 200px;
+    background-size: cover;
+    background-position: center;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.thumbnail-placeholder {
+    font-size: 64px;
+    opacity: 0.5;
+}
+
+.history-content {
+    padding: var(--spacing-md);
+}
+
+.history-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: var(--spacing-sm);
+}
+
+.history-item-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
+    flex: 1;
+    margin-right: var(--spacing-sm);
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.status-success {
+    background: rgba(52, 199, 89, 0.2);
+    color: #34c759;
+}
+
+.status-error {
+    background: rgba(255, 59, 48, 0.2);
+    color: #ff3b30;
+}
+
+.status-running {
+    background: rgba(0, 122, 255, 0.2);
+    color: #007aff;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.status-queued {
+    background: rgba(142, 142, 147, 0.2);
+    color: #8e8e93;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.history-meta {
+    display: flex;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+    font-size: 13px;
+    color: var(--color-text-secondary);
+}
+
+.meta-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.learning-points-preview {
+    background: var(--color-card);
+    border-radius: var(--radius-sm);
+    padding: var(--spacing-sm);
+}
+
+.learning-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    margin-bottom: var(--spacing-xs);
+}
+
+.learning-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.learning-point {
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--color-text);
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 /* ========== 响应式 ========== */
 @media (max-width: 1200px) {
     .sidebar {
         width: 300px;
+    }
+    
+    .history-list {
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
     }
 }
 
@@ -1096,6 +1313,10 @@ body {
         width: 100%;
         border-right: none;
         border-bottom: 1px solid var(--color-border);
+    }
+    
+    .history-list {
+        grid-template-columns: 1fr;
     }
 }
 
