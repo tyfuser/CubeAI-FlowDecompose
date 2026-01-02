@@ -1,0 +1,128 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MetadataOutput",
+  "description": "Output schema for the Metadata Synthesizer Agent",
+  "type": "object",
+  "required": [
+    "time_range",
+    "motion",
+    "framing",
+    "beat_alignment_score",
+    "confidence",
+    "explainability"
+  ],
+  "properties": {
+    "time_range": {
+      "type": "array",
+      "description": "Time range [start, end] in seconds where 0 <= start < end <= video_duration",
+      "items": {
+        "type": "number",
+        "minimum": 0
+      },
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "motion": {
+      "type": "object",
+      "description": "Motion analysis data",
+      "required": ["type", "params"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Camera motion type classification",
+          "enum": [
+            "dolly_in",
+            "dolly_out",
+            "pan",
+            "tilt",
+            "track",
+            "handheld",
+            "static"
+          ]
+        },
+        "params": {
+          "type": "object",
+          "description": "Motion parameters",
+          "required": [
+            "duration_s",
+            "frame_pct_change",
+            "speed_profile",
+            "motion_smoothness"
+          ],
+          "properties": {
+            "duration_s": {
+              "type": "number",
+              "description": "Duration in seconds",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "frame_pct_change": {
+              "type": "number",
+              "description": "Subject area change ratio",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "speed_profile": {
+              "type": "string",
+              "description": "Speed curve profile",
+              "enum": ["ease_in", "ease_out", "ease_in_out", "linear"]
+            },
+            "motion_smoothness": {
+              "type": "number",
+              "description": "Motion smoothness score (0-1, higher = smoother)",
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        }
+      }
+    },
+    "framing": {
+      "type": "object",
+      "description": "Framing and composition data",
+      "required": ["subject_bbox", "subject_occupancy", "suggested_scale"],
+      "properties": {
+        "subject_bbox": {
+          "type": "array",
+          "description": "Normalized bounding box [x, y, w, h] with all values in [0, 1]",
+          "items": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "subject_occupancy": {
+          "type": "number",
+          "description": "Subject area ratio (0-1)",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "suggested_scale": {
+          "type": "string",
+          "description": "Suggested framing scale",
+          "enum": ["extreme_closeup", "closeup", "medium", "wide"]
+        }
+      }
+    },
+    "beat_alignment_score": {
+      "type": "number",
+      "description": "Motion-beat synchronization score (0-1)",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "confidence": {
+      "type": "number",
+      "description": "Overall recommendation confidence (0-1)",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "explainability": {
+      "type": "string",
+      "description": "2-sentence Chinese explanation of the recommendation",
+      "maxLength": 500
+    }
+  },
+  "additionalProperties": false
+}

@@ -15,6 +15,11 @@ import { analyzeVideoConcept, generateCreativeScript } from './services/geminiSe
 import { createAnalysis, pollAnalysisResult, uploadVideo } from './services/analysisService';
 import { isApiError } from './services/api';
 import { AlertCircle, X } from 'lucide-react';
+import { ConsoleView } from './components/phone_ai/ConsoleView';
+import { MobileView } from './components/phone_ai/MobileView';
+import { CameraDebug } from './components/phone_ai/CameraDebug';
+import { ShootingAdvisorView } from './components/phone_ai/ShootingAdvisorView';
+import { ShootingConsoleView } from './components/phone_ai/ShootingConsoleView';
 
 const RubikIcon = ({ className = "w-8 h-8" }) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -34,15 +39,52 @@ const App: React.FC = () => {
   const [activeSection, setActiveSection] = useState<AppSection>(AppSection.Dashboard);
   const [loading, setLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [errorToast, setErrorToast] = useState<{message: string, type: 'error' | 'warning'} | null>(null);
+  const [errorToast, setErrorToast] = useState<{ message: string, type: 'error' | 'warning' } | null>(null);
   const [analysisProgress, setAnalysisProgress] = useState({
     status: '',
     progress: 0,
     currentStep: '',
   });
-  
+
   const [analysis, setAnalysis] = useState<VideoAnalysis | null>(null);
   const [shots, setShots] = useState<Shot[]>([]);
+
+  // Mobile/Standalone View State
+  const [mobileViewState, setMobileViewState] = useState<{
+    type: 'mobile' | 'shooting-advisor' | 'console' | 'debug';
+    sessionId?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    // Check for Deep Links (Hash Routing for mobile/standalone views)
+    const checkHash = () => {
+      const hash = window.location.hash;
+
+      if (hash.startsWith('#/shooting-advisor/')) {
+        const id = hash.split('/')[2];
+        if (id) setMobileViewState({ type: 'shooting-advisor', sessionId: id });
+      } else if (hash.startsWith('#/shooting-mobile/')) {
+        const id = hash.split('/')[2];
+        if (id) setMobileViewState({ type: 'shooting-advisor', sessionId: id });
+      } else if (hash.startsWith('#/mobile/')) {
+        const id = hash.split('/')[2];
+        if (id) setMobileViewState({ type: 'mobile', sessionId: id });
+      } else if (hash.startsWith('#/console/')) {
+        const id = hash.split('/')[2];
+        if (id && id !== 'new') setMobileViewState({ type: 'console', sessionId: id });
+      } else if (hash.startsWith('#/shooting-console/')) {
+        // If we want shooting console to be full screen standalone
+        const id = hash.split('/')[2];
+        if (id) setMobileViewState({ type: 'console', sessionId: id });
+      } else if (hash === '#/debug') {
+        setMobileViewState({ type: 'debug' });
+      }
+    };
+
+    checkHash();
+    window.addEventListener('hashchange', checkHash);
+    return () => window.removeEventListener('hashchange', checkHash);
+  }, []);
 
   useEffect(() => {
     const savedLogin = localStorage.getItem('rubik_auth');
@@ -123,36 +165,36 @@ const App: React.FC = () => {
         code: error.code,
         response: error.response?.data
       });
-      
+
       setLoading(false);
       setAnalysisProgress({ status: '', progress: 0, currentStep: '' });
-      
+
       if (isApiError(error)) {
         if (error.code === 'FILE_TOO_LARGE') {
-          setErrorToast({ 
-            message: '文件过大，请上传小于 500MB 的视频', 
-            type: 'error' 
+          setErrorToast({
+            message: '文件过大，请上传小于 500MB 的视频',
+            type: 'error'
           });
         } else if (error.code === 'UNSUPPORTED_FORMAT') {
-          setErrorToast({ 
-            message: '不支持的文件格式', 
-            type: 'error' 
+          setErrorToast({
+            message: '不支持的文件格式',
+            type: 'error'
           });
         } else if (error.message?.includes('上传接口未返回')) {
-          setErrorToast({ 
-            message: '后端上传接口返回数据格式错误，请检查后端实现', 
-            type: 'error' 
+          setErrorToast({
+            message: '后端上传接口返回数据格式错误，请检查后端实现',
+            type: 'error'
           });
         } else {
-          setErrorToast({ 
-            message: error.message || '上传失败，请稍后重试', 
-            type: 'error' 
+          setErrorToast({
+            message: error.message || '上传失败，请稍后重试',
+            type: 'error'
           });
         }
       } else {
-        setErrorToast({ 
-          message: error.message || '网络连接失败，请检查网络', 
-          type: 'error' 
+        setErrorToast({
+          message: error.message || '网络连接失败，请检查网络',
+          type: 'error'
         });
       }
     }
@@ -188,7 +230,7 @@ const App: React.FC = () => {
 
       // 3. 设置分析结果
       setAnalysis(result);
-      
+
       // 4. 生成默认脚本
       if (result && result.title) {
         setShots(generateDefaultShots(result.title));
@@ -196,40 +238,40 @@ const App: React.FC = () => {
         console.warn('分析结果缺少 title 字段:', result);
         setShots(generateDefaultShots('未命名视频'));
       }
-      
+
       // 5. 跳转到分析页面
       setActiveSection(AppSection.Analysis);
 
       console.log('分析完成:', result);
     } catch (error: any) {
       console.error('分析失败:', error);
-      
+
       if (isApiError(error)) {
         if (error.code === 'QUOTA_EXCEEDED') {
-          setErrorToast({ 
-            message: 'API 配额已用完，请升级套餐或稍后再试', 
-            type: 'warning' 
+          setErrorToast({
+            message: 'API 配额已用完，请升级套餐或稍后再试',
+            type: 'warning'
           });
         } else if (error.code === 'INVALID_URL') {
-          setErrorToast({ 
-            message: '视频链接格式不正确，请检查后重试', 
-            type: 'error' 
+          setErrorToast({
+            message: '视频链接格式不正确，请检查后重试',
+            type: 'error'
           });
         } else if (error.code === 'ANALYSIS_FAILED') {
-          setErrorToast({ 
-            message: '视频分析失败，请稍后重试', 
-            type: 'error' 
+          setErrorToast({
+            message: '视频分析失败，请稍后重试',
+            type: 'error'
           });
         } else {
-          setErrorToast({ 
-            message: error.message || '分析失败，请稍后重试', 
-            type: 'error' 
+          setErrorToast({
+            message: error.message || '分析失败，请稍后重试',
+            type: 'error'
           });
         }
       } else {
-        setErrorToast({ 
-          message: '网络连接失败，请检查网络', 
-          type: 'error' 
+        setErrorToast({
+          message: '网络连接失败，请检查网络',
+          type: 'error'
         });
       }
     } finally {
@@ -245,7 +287,7 @@ const App: React.FC = () => {
         time: i,
         intensity: i < 3 ? 80 + Math.random() * 20 : 20 + Math.random() * 70
       }));
-      
+
       const radarData = project.radarData || [
         { subject: '钩子强度', value: 85, fullMark: 100 },
         { subject: '情绪张力', value: 70, fullMark: 100 },
@@ -312,26 +354,35 @@ const App: React.FC = () => {
         return <KnowledgeBase />;
       case AppSection.Settings:
         return <Settings onLogout={handleLogout} />;
+      case AppSection.ShootingAssistant:
+        return <ShootingConsoleView initialSessionId={null} />;
       default:
         return <Dashboard onStartAnalysis={handleStartAnalysis} onViewDetails={handleViewDetails} />;
     }
   };
 
-  if (!isLoggedIn) {
+  if (!isLoggedIn && !mobileViewState) {
     return <Login onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  // Render Standalone Mobile/Debug Views
+  if (mobileViewState) {
+    if (mobileViewState.type === 'debug') return <CameraDebug />;
+    if (mobileViewState.type === 'mobile' && mobileViewState.sessionId) return <MobileView sessionId={mobileViewState.sessionId} />;
+    if (mobileViewState.type === 'shooting-advisor' && mobileViewState.sessionId) return <ShootingAdvisorView sessionId={mobileViewState.sessionId} />;
+    if (mobileViewState.type === 'console' && mobileViewState.sessionId) return <ShootingConsoleView initialSessionId={mobileViewState.sessionId} />;
   }
 
   return (
     <div className="flex h-screen bg-[#05070a] overflow-hidden text-gray-100 font-sans relative">
       <Sidebar activeSection={activeSection} onSectionChange={setActiveSection} />
-      
+
       <main className="flex-1 relative overflow-hidden bg-[#05070a]">
         {/* Global Toast */}
         {errorToast && (
           <div className="fixed top-8 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-top-4 duration-300">
-            <div className={`flex items-center gap-4 px-6 py-4 rounded-2xl border backdrop-blur-xl shadow-2xl ${
-              errorToast.type === 'error' ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400'
-            }`}>
+            <div className={`flex items-center gap-4 px-6 py-4 rounded-2xl border backdrop-blur-xl shadow-2xl ${errorToast.type === 'error' ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400'
+              }`}>
               <AlertCircle size={20} />
               <p className="text-sm font-bold">{errorToast.message}</p>
               <button onClick={() => setErrorToast(null)} className="ml-2 p-1 hover:bg-white/10 rounded-lg">
@@ -354,7 +405,7 @@ const App: React.FC = () => {
               {analysisProgress.progress > 0 && (
                 <>
                   <div className="w-80 bg-gray-800 rounded-full h-2 overflow-hidden">
-                    <div 
+                    <div
                       className="bg-indigo-500 h-full transition-all duration-300"
                       style={{ width: `${analysisProgress.progress}%` }}
                     />
