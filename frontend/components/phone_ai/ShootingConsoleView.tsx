@@ -49,8 +49,15 @@ export const ShootingConsoleView: React.FC<ShootingConsoleViewProps> = ({ initia
         const hashIndex = href.indexOf('#');
         let baseUrl = hashIndex !== -1 ? href.substring(0, hashIndex) : href;
 
-        // Keep HTTP for local development (HTTPS requires certificate setup)
-        // Mobile camera access will work on localhost or with proper HTTPS setup
+        // 🔧 重要：将 localhost 替换为实际网络地址，否则手机无法访问
+        // localhost 在手机上指向手机自己，而不是电脑
+        if (baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1')) {
+          console.warn('⚠️ 检测到使用 localhost，这会导致手机无法访问！');
+          console.log('💡 建议：在电脑浏览器使用 Network 地址访问，例如：https://192.168.x.x:3000/');
+          // 尝试从 Vite 的 Network 地址获取（如果可用）
+          // 注意：这只是警告，我们保持原样以便用户注意到问题
+        }
+
         setJoinUrl(`${baseUrl}#/shooting-mobile/${sessionId}`);
         return;
       }
@@ -59,9 +66,11 @@ export const ShootingConsoleView: React.FC<ShootingConsoleViewProps> = ({ initia
       setLoading(true);
       try {
         const hostname = window.location.hostname;
-        const port = '8000';  // Python 后端端口
+        // Phone AI 后端端口（默认 8001，可通过环境变量配置）
+        // @ts-ignore - VITE环境变量在构建时注入
+        const phoneAiPort = import.meta.env.VITE_PHONE_AI_PORT || '8001';
         // Use HTTP for backend API (runs on same machine)
-        const res = await fetch(`http://${hostname}:${port}/api/realtime/session`, {
+        const res = await fetch(`http://${hostname}:${phoneAiPort}/api/realtime/session`, {
           method: 'POST',
         });
 
@@ -73,6 +82,15 @@ export const ShootingConsoleView: React.FC<ShootingConsoleViewProps> = ({ initia
           let href = window.location.href;
           const hashIndex = href.indexOf('#');
           let baseUrl = hashIndex !== -1 ? href.substring(0, hashIndex) : href;
+
+          // 🔧 重要：将 localhost 替换为实际网络地址，否则手机无法访问
+          if (baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1')) {
+            console.warn('⚠️ 检测到使用 localhost，自动替换为网络地址');
+            const protocol = window.location.protocol;
+            const port = window.location.port;
+            baseUrl = `${protocol}//${hostname}:${port}`;
+            addLog('warning', '检测到 localhost，已自动替换为网络地址');
+          }
 
           setJoinUrl(`${baseUrl}#/shooting-mobile/${data.session_id}`);
           setIsLocal(false);
@@ -90,6 +108,16 @@ export const ShootingConsoleView: React.FC<ShootingConsoleViewProps> = ({ initia
         const hashIndex = href.indexOf('#');
         let baseUrl = hashIndex !== -1 ? href.substring(0, hashIndex) : href;
 
+        // 🔧 重要：将 localhost 替换为实际网络地址，否则手机无法访问
+        const hostname = window.location.hostname;
+        if (baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1')) {
+          console.warn('⚠️ 检测到使用 localhost，自动替换为网络地址');
+          const protocol = window.location.protocol;
+          const port = window.location.port;
+          baseUrl = `${protocol}//${hostname}:${port}`;
+          addLog('warning', '检测到 localhost，已自动替换为网络地址');
+        }
+
         setJoinUrl(`${baseUrl}#/shooting-mobile/${localSessionId}`);
         setIsLocal(true);
 
@@ -106,12 +134,18 @@ export const ShootingConsoleView: React.FC<ShootingConsoleViewProps> = ({ initia
     if (!sessionId) return;
 
     const hostname = window.location.hostname;
-    const port = '8080';
-    // Use wss:// for HTTPS pages, ws:// for HTTP pages
-    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${wsProtocol}//${hostname}:${port}/shooting/${sessionId}/console`;
+    // Phone AI 后端端口（默认 8001，可通过环境变量配置）
+    // @ts-ignore - VITE环境变量在构建时注入
+    const phoneAiPort = import.meta.env.VITE_PHONE_AI_PORT || '8001';
+    
+    // 🔧 自动选择 WebSocket 协议：HTTPS 页面使用 wss://，HTTP 页面使用 ws://
+    const isHTTPS = window.location.protocol === 'https:';
+    const wsProtocol = isHTTPS ? 'wss:' : 'ws:';
+    
+    // 使用 Python 后端的 WebSocket 端点
+    const wsUrl = `${wsProtocol}//${hostname}:${phoneAiPort}/api/realtime/session/${sessionId}/ws`;
 
-    console.log(`[ShootingConsole] Connecting to ${wsUrl}`);
+    console.log(`[ShootingConsole] Connecting to ${wsUrl} (${isHTTPS ? 'Secure' : 'Insecure'})`);
 
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
@@ -153,6 +187,16 @@ export const ShootingConsoleView: React.FC<ShootingConsoleViewProps> = ({ initia
 
   const handleServerMessage = (message: any) => {
     switch (message.type) {
+      case 'connected':
+        // WebSocket连接成功
+        addLog('connection', `已连接到服务器`, message);
+        break;
+
+      case 'heartbeat':
+        // 心跳消息，保持连接活跃
+        // 不记录日志，避免日志过多
+        break;
+
       case 'client_connected':
         setStats(prev => ({ ...prev, connectedClients: prev.connectedClients + 1 }));
         addLog('connection', `手机客户端已连接`);
@@ -172,19 +216,23 @@ export const ShootingConsoleView: React.FC<ShootingConsoleViewProps> = ({ initia
         break;
 
       case 'advice_sent':
+      case 'advice':
         setStats(prev => ({ ...prev, adviceSent: prev.adviceSent + 1 }));
-        addLog('advice', `发送建议: ${message.advice?.message || ''}`, message.advice);
+        addLog('advice', `发送建议: ${message.message || message.advice?.message || ''}`, message);
         break;
 
       case 'stats_update':
+      case 'telemetry':
         setStats(prev => ({
           ...prev,
-          avgLatencyMs: message.avg_latency_ms || prev.avgLatencyMs,
+          avgLatencyMs: message.avg_latency_ms || message.analysis_latency_ms || prev.avgLatencyMs,
         }));
         break;
 
       default:
-        console.log('Unknown message:', message);
+        // 对于未知消息类型，静默处理（不再打印到控制台）
+        // console.log('Unknown message:', message);
+        break;
     }
   };
 
@@ -246,6 +294,30 @@ export const ShootingConsoleView: React.FC<ShootingConsoleViewProps> = ({ initia
               </div>
 
               <div className="space-y-4 w-full">
+                {/* 检测 localhost 并显示警告 */}
+                {joinUrl && (joinUrl.includes('localhost') || joinUrl.includes('127.0.0.1')) && (
+                  <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 backdrop-blur-sm">
+                    <div className="flex items-start gap-3">
+                      <div className="text-2xl">⚠️</div>
+                      <div className="flex-1 space-y-2">
+                        <p className="text-sm font-bold text-red-400">手机无法访问此二维码</p>
+                        <p className="text-xs text-red-300/80 leading-relaxed">
+                          当前使用 <span className="font-mono bg-red-500/20 px-1 rounded">localhost</span> 访问，手机无法扫码。
+                        </p>
+                        <div className="bg-red-500/20 rounded-xl p-3 mt-2">
+                          <p className="text-xs font-bold text-red-300 mb-2">✅ 解决方案：</p>
+                          <ol className="text-xs text-red-200/90 space-y-1 list-decimal list-inside">
+                            <li>在终端运行：<code className="bg-black/30 px-2 py-0.5 rounded text-[10px] font-mono">ifconfig | grep "inet " | grep -v 127.0.0.1</code></li>
+                            <li>找到你的 IP 地址（如 <span className="font-mono">192.168.x.x</span>）</li>
+                            <li>使用 IP 地址访问前端（如 <span className="font-mono">http://192.168.1.100:3000</span>）</li>
+                            <li>重新生成二维码</li>
+                          </ol>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="bg-[#0b0f1a]/50 p-4 rounded-2xl border border-white/5 backdrop-blur-sm">
                   <p className="text-xs text-gray-400 font-medium mb-2">连接地址</p>
                   <a
@@ -258,9 +330,11 @@ export const ShootingConsoleView: React.FC<ShootingConsoleViewProps> = ({ initia
                   </a>
                 </div>
 
-                <p className="text-[10px] text-yellow-500/80 font-bold bg-yellow-500/5 px-4 py-2 rounded-xl border border-yellow-500/10">
-                  ⚠️ 提示：请允许浏览器访问摄像头权限
-                </p>
+                {!(joinUrl && (joinUrl.includes('localhost') || joinUrl.includes('127.0.0.1'))) && (
+                  <p className="text-[10px] text-yellow-500/80 font-bold bg-yellow-500/5 px-4 py-2 rounded-xl border border-yellow-500/10">
+                    ⚠️ 提示：请允许浏览器访问摄像头权限
+                  </p>
+                )}
               </div>
             </section>
 

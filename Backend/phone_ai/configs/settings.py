@@ -2,12 +2,14 @@
 Application settings and configuration.
 """
 from typing import Optional
-from pydantic import Field
+from pydantic import Field, ConfigDict
 from pydantic_settings import BaseSettings
 
 
 class DatabaseSettings(BaseSettings):
     """Database configuration."""
+    
+    model_config = ConfigDict(extra="ignore")
     
     host: str = Field(default="localhost", alias="DB_HOST")
     port: int = Field(default=5432, alias="DB_PORT")
@@ -27,6 +29,8 @@ class DatabaseSettings(BaseSettings):
 class RedisSettings(BaseSettings):
     """Redis configuration."""
     
+    model_config = ConfigDict(extra="ignore")
+    
     host: str = Field(default="localhost", alias="REDIS_HOST")
     port: int = Field(default=6379, alias="REDIS_PORT")
     db: int = Field(default=0, alias="REDIS_DB")
@@ -42,6 +46,8 @@ class RedisSettings(BaseSettings):
 class CelerySettings(BaseSettings):
     """Celery configuration."""
     
+    model_config = ConfigDict(extra="ignore")
+    
     broker_url: str = Field(default="redis://localhost:6379/0", alias="CELERY_BROKER_URL")
     result_backend: str = Field(default="redis://localhost:6379/1", alias="CELERY_RESULT_BACKEND")
     task_serializer: str = "json"
@@ -54,6 +60,8 @@ class CelerySettings(BaseSettings):
 class StorageSettings(BaseSettings):
     """Storage configuration for videos and frames."""
     
+    model_config = ConfigDict(extra="ignore")
+    
     upload_dir: str = Field(default="./uploads", alias="UPLOAD_DIR")
     frames_dir: str = Field(default="./frames", alias="FRAMES_DIR")
     max_file_size_mb: int = Field(default=500, alias="MAX_FILE_SIZE_MB")
@@ -64,6 +72,8 @@ class StorageSettings(BaseSettings):
 class ProcessingSettings(BaseSettings):
     """Video processing configuration."""
     
+    model_config = ConfigDict(extra="ignore")
+    
     target_resolution: tuple[int, int] = (640, 480)
     frame_extraction_fps: float = Field(default=1.0, alias="FRAME_EXTRACTION_FPS")
     max_processing_time_1min: int = Field(default=120, alias="MAX_PROCESSING_TIME_1MIN")
@@ -73,6 +83,8 @@ class ProcessingSettings(BaseSettings):
 
 class LLMSettings(BaseSettings):
     """LLM API configuration."""
+    
+    model_config = ConfigDict(extra="ignore")
 
     provider: str = Field(default="sophnet", alias="LLM_PROVIDER")
     api_key: Optional[str] = Field(default="OjmhrLwGlhZE_8BWV0NDYg19PURDsjGwUNazaH7LkrbKQ5LBQPeDrqKvX8-NNyvDTXH25JHP0Wn83gt2_8OEAw", alias="LLM_API_KEY")
@@ -84,6 +96,8 @@ class LLMSettings(BaseSettings):
 
 class MMHLLMSettings(BaseSettings):
     """Multi-modal LLM API configuration."""
+    
+    model_config = ConfigDict(extra="ignore")
 
     api_key: Optional[str] = Field(default="OjmhrLwGlhZE_8BWV0NDYg19PURDsjGwUNazaH7LkrbKQ5LBQPeDrqKvX8-NNyvDTXH25JHP0Wn83gt2_8OEAw", alias="MM_LLM_API_KEY")
     base_url: str = Field(default="https://www.sophnet.com/api/open-apis/v1", alias="MM_LLM_BASE_URL")
@@ -95,6 +109,8 @@ class MMHLLMSettings(BaseSettings):
 class SecuritySettings(BaseSettings):
     """Security configuration."""
     
+    model_config = ConfigDict(extra="ignore")
+    
     secret_key: str = Field(default="your-secret-key-change-in-production", alias="SECRET_KEY")
     algorithm: str = "HS256"
     access_token_expire_minutes: int = Field(default=30, alias="ACCESS_TOKEN_EXPIRE_MINUTES")
@@ -103,6 +119,12 @@ class SecuritySettings(BaseSettings):
 
 class Settings(BaseSettings):
     """Main application settings."""
+    
+    model_config = ConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore"  # 忽略 .env 文件中的额外字段（如 PORT, HOST 等）
+    )
     
     app_name: str = "Video Shooting Assistant"
     debug: bool = Field(default=False, alias="DEBUG")
@@ -116,10 +138,6 @@ class Settings(BaseSettings):
     llm: LLMSettings = LLMSettings()
     mm_llm: MMHLLMSettings = MMHLLMSettings()
     security: SecuritySettings = SecuritySettings()
-    
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
 
 
 # Global settings instance

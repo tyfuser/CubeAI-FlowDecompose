@@ -322,18 +322,20 @@ type ConnectionState = 'connecting' | 'connected' | 'disconnected' | 'error';
 // Get WebSocket URL based on current environment
 function getWsUrl(sessionId: string): string {
   const hostname = window.location.hostname;
-  const port = '8000';  // Python 后端端口
+  // Phone AI 后端端口（默认 8001，可通过环境变量配置）
+  // @ts-ignore - VITE环境变量在构建时注入
+  const phoneAiPort = import.meta.env.VITE_PHONE_AI_PORT || '8001';
   
   // 如果前端是 HTTPS，后端也应该支持 WSS（如果配置了 SSL）
   // 否则使用 WS（可能被浏览器阻止混合内容）
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   
-  const wsUrl = `${protocol}//${hostname}:${port}/api/realtime/session/${sessionId}/ws`;
+  const wsUrl = `${protocol}//${hostname}:${phoneAiPort}/api/realtime/session/${sessionId}/ws`;
   console.log('[ShootingAdvisor] WebSocket URL:', wsUrl, {
     frontendProtocol: window.location.protocol,
     backendProtocol: protocol,
     hostname,
-    port,
+    port: phoneAiPort,
     note: protocol === 'wss:' ? '需要后端支持 WSS' : '使用 WS（可能被浏览器阻止）'
   });
   
