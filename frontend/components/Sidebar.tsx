@@ -27,6 +27,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeSection, onSectionChange }) => 
     { id: AppSection.Analysis, label: '视频深度拆解', icon: BarChart3 },
     { id: AppSection.VideoSlideshow, label: '视频转幻灯片', icon: Presentation },
     { id: AppSection.ShotAnalysis, label: '镜头拆解分析', icon: Film },
+    { id: AppSection.ShootingAssistant, label: 'AI 拍摄助手', icon: Zap },
     { id: AppSection.Editor, label: '创作中心', icon: Edit3 },
     { id: AppSection.KnowledgeBase, label: '灵感仓库', icon: BookOpen },
     { id: AppSection.Settings, label: '系统设置', icon: Settings },
@@ -58,11 +59,10 @@ const Sidebar: React.FC<SidebarProps> = ({ activeSection, onSectionChange }) => 
             <button
               key={item.id}
               onClick={() => onSectionChange(item.id)}
-              className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl transition-all duration-300 group relative ${
-                isActive 
-                  ? 'bg-indigo-600/10 text-white translate-x-1' 
+              className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl transition-all duration-300 group relative ${isActive
+                  ? 'bg-indigo-600/10 text-white translate-x-1'
                   : 'text-gray-500 hover:text-gray-200 hover:bg-gray-800/30'
-              }`}
+                }`}
             >
               {isActive && (
                 <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-8 bg-indigo-500 rounded-full shadow-[0_0_15px_rgba(99,102,241,0.8)]" />
@@ -74,21 +74,20 @@ const Sidebar: React.FC<SidebarProps> = ({ activeSection, onSectionChange }) => 
         })}
 
         <div className="pt-8">
-           <p className="px-6 text-[10px] font-black text-gray-600 uppercase tracking-[0.25em] mb-4">创作探索</p>
-           <button 
-             onClick={() => onSectionChange(AppSection.Discovery)}
-             className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl transition-all duration-300 group relative ${
-               activeSection === AppSection.Discovery
-                 ? 'bg-indigo-600/10 text-white translate-x-1' 
-                 : 'text-gray-500 hover:text-gray-200 hover:bg-gray-800/30'
-             }`}
-           >
-             {activeSection === AppSection.Discovery && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-8 bg-indigo-500 rounded-full shadow-[0_0_15px_rgba(99,102,241,0.8)]" />
-              )}
-             <Compass className={`w-5 h-5 transition-transform duration-300 ${activeSection === AppSection.Discovery ? 'text-indigo-400 scale-110' : 'group-hover:rotate-45'}`} />
-             <span className="font-bold text-sm tracking-tight">发现爆款案例</span>
-           </button>
+          <p className="px-6 text-[10px] font-black text-gray-600 uppercase tracking-[0.25em] mb-4">创作探索</p>
+          <button
+            onClick={() => onSectionChange(AppSection.Discovery)}
+            className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl transition-all duration-300 group relative ${activeSection === AppSection.Discovery
+                ? 'bg-indigo-600/10 text-white translate-x-1'
+                : 'text-gray-500 hover:text-gray-200 hover:bg-gray-800/30'
+              }`}
+          >
+            {activeSection === AppSection.Discovery && (
+              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-8 bg-indigo-500 rounded-full shadow-[0_0_15px_rgba(99,102,241,0.8)]" />
+            )}
+            <Compass className={`w-5 h-5 transition-transform duration-300 ${activeSection === AppSection.Discovery ? 'text-indigo-400 scale-110' : 'group-hover:rotate-45'}`} />
+            <span className="font-bold text-sm tracking-tight">发现爆款案例</span>
+          </button>
         </div>
       </nav>
 

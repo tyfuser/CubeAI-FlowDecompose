@@ -1,0 +1,41 @@
+# Git ignore file
+
+# Python
+__pycache__/
+*.py[cod]
+*.class
+*.so
+.Python
+*.egg-info/
+.hypothesis/
+.pytest_cache/
+.kiro/
+.vscode/
+
+# Node
+node_modules/
+dist/
+build/
+
+# SSL Certificates
+*.pem
+*.key
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+/tmp/
+
+# Video files
+*.mp4
+*.mov
+*.avi
+
