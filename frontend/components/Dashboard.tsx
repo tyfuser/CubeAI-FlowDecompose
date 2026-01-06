@@ -145,7 +145,18 @@ const Dashboard: React.FC<DashboardProps> = ({ onStartAnalysis, onStartFileAnaly
       return thumbnail;
     }
     if (thumbnail.startsWith('/')) {
-      const baseUrl = import.meta.env.VITE_SHOT_ANALYSIS_BASE_URL || 'http://localhost:8000';
+      // 如果环境变量设置了URL，使用环境变量的协议（不强制转换）
+      const envUrl = import.meta.env.VITE_SHOT_ANALYSIS_BASE_URL;
+      let baseUrl: string;
+      if (envUrl) {
+        // 直接使用环境变量的URL，保持原有协议
+        baseUrl = envUrl;
+      } else {
+        // 默认使用当前页面的hostname和协议
+        const protocol = window.location.protocol;
+        const hostname = window.location.hostname;
+        baseUrl = `${protocol}//${hostname}:8000`;
+      }
       return `${baseUrl}${thumbnail}`;
     }
     return thumbnail;

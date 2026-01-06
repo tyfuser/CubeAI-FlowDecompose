@@ -6,6 +6,7 @@
  */
 import React, { useEffect, useState, useRef } from 'react';
 import { QRCode } from './QRCode';
+import { buildUrl, buildWebSocketUrl } from '../../utils/urlHelper';
 
 interface ShootingConsoleViewProps {
   initialSessionId: string | null;
@@ -69,8 +70,9 @@ export const ShootingConsoleView: React.FC<ShootingConsoleViewProps> = ({ initia
         // Phone AI 后端端口（默认 8001，可通过环境变量配置）
         // @ts-ignore - VITE环境变量在构建时注入
         const phoneAiPort = import.meta.env.VITE_PHONE_AI_PORT || '8001';
-        // Use HTTP for backend API (runs on same machine)
-        const res = await fetch(`http://${hostname}:${phoneAiPort}/api/realtime/session`, {
+        // 根据当前页面协议自动选择 HTTP/HTTPS
+        const sessionUrl = buildUrl(hostname, phoneAiPort, '/api/realtime/session');
+        const res = await fetch(sessionUrl, {
           method: 'POST',
         });
 
@@ -139,11 +141,8 @@ export const ShootingConsoleView: React.FC<ShootingConsoleViewProps> = ({ initia
     const phoneAiPort = import.meta.env.VITE_PHONE_AI_PORT || '8001';
     
     // 🔧 自动选择 WebSocket 协议：HTTPS 页面使用 wss://，HTTP 页面使用 ws://
+    const wsUrl = buildWebSocketUrl(hostname, phoneAiPort, `/api/realtime/session/${sessionId}/ws`);
     const isHTTPS = window.location.protocol === 'https:';
-    const wsProtocol = isHTTPS ? 'wss:' : 'ws:';
-    
-    // 使用 Python 后端的 WebSocket 端点
-    const wsUrl = `${wsProtocol}//${hostname}:${phoneAiPort}/api/realtime/session/${sessionId}/ws`;
 
     console.log(`[ShootingConsole] Connecting to ${wsUrl} (${isHTTPS ? 'Secure' : 'Insecure'})`);
 

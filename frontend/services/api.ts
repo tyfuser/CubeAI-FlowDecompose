@@ -6,7 +6,40 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 
 // API 基础配置
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.rubik-ai.com/v1';
+// 注意：如果环境变量明确设置了URL，使用环境变量的协议（不强制转换）
+// 这样可以避免HTTPS前端访问HTTP后端时的混合内容问题
+// 最佳实践：配置后端也支持HTTPS，或使用反向代理
+const getApiBaseUrl = (): string => {
+  const envUrl = import.meta.env.VITE_API_BASE_URL;
+  
+  // 调试日志
+  if (typeof window !== 'undefined') {
+    console.log('[API Config] VITE_API_BASE_URL:', envUrl);
+    console.log('[API Config] Current location:', window.location.href);
+  }
+  
+  if (envUrl) {
+    // 如果环境变量设置了URL，直接使用（保持原有协议）
+    // 如果后端不支持HTTPS，保持HTTP；如果支持HTTPS，使用HTTPS
+    console.log('[API Config] Using env URL:', envUrl);
+    return envUrl;
+  }
+  
+  // 如果没有设置环境变量，默认使用当前hostname + HTTP（因为后端通常不支持HTTPS）
+  // 这样可以避免HTTPS前端尝试访问不存在的HTTPS后端
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    const defaultUrl = `http://${hostname}:8000/api/v1`;
+    console.warn('[API Config] No VITE_API_BASE_URL set, using default:', defaultUrl);
+    console.warn('[API Config] Please create .env file with: VITE_API_BASE_URL=http://YOUR_IP:8000/api/v1');
+    return defaultUrl;
+  }
+  
+  return 'https://api.rubik-ai.com/v1';
+};
+
+const API_BASE_URL = getApiBaseUrl();
+console.log('[API Config] Final API_BASE_URL:', API_BASE_URL);
 const API_VERSION = 'v1';
 const REQUEST_TIMEOUT = 30000; // 30秒
 
@@ -129,6 +162,27 @@ apiClient.interceptors.response.use(
       ));
     } else if (error.request) {
       // 请求已发送但没有收到响应
+      // 检查是否是混合内容错误（HTTPS前端访问HTTP后端）
+      const isHTTPS = window.location.protocol === 'https:';
+      const requestUrl = error.config?.url || '';
+      const baseURL = error.config?.baseURL || '';
+      const fullUrl = baseURL + requestUrl;
+      
+      if (isHTTPS && fullUrl.startsWith('http://')) {
+        console.error('[API Error] 混合内容错误：HTTPS前端无法访问HTTP后端');
+        console.error('[API Error] 请求URL:', fullUrl);
+        console.error('[API Error] 解决方案：');
+        console.error('[API Error] 1. 使用 HTTP 模式启动前端: FORCE_HTTP=true npm run dev');
+        console.error('[API Error] 2. 或配置后端支持 HTTPS');
+        console.error('[API Error] 3. 或访问 http://' + window.location.hostname + ':3000');
+        
+        return Promise.reject(new ApiError(
+          '混合内容错误：HTTPS页面无法访问HTTP后端。请使用 HTTP 模式启动前端（FORCE_HTTP=true npm run dev）或访问 http://' + window.location.hostname + ':3000',
+          'MIXED_CONTENT_ERROR',
+          0
+        ));
+      }
+      
       return Promise.reject(new ApiError(
         '网络连接失败，请检查网络',
         'NETWORK_ERROR',

@@ -206,6 +206,7 @@ class RealtimeWebSocketHandler:
             websocket: FastAPI WebSocket connection
             session_id: Session identifier
         """
+        # Accept WebSocket connection with CORS headers
         await websocket.accept()
         
         # Get or create session

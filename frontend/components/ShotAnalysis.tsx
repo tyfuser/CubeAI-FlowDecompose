@@ -3,6 +3,22 @@ import { Upload, FileVideo, Play, Pause, History, Trash2, ChevronRight, X } from
 import { Segment, Feature, JobResponse, HistoryItem } from '../types';
 import { createAnalysisJob, streamJobProgress, getJobStatus, getHistory, deleteJob } from '../services/videoAnalysisService';
 import { isApiError } from '../services/api';
+import { fixUrlProtocol, buildUrl } from '../utils/urlHelper';
+
+// 获取后端基础URL
+// 注意：如果环境变量设置了URL，使用环境变量的协议（不强制转换）
+function getBackendBaseUrl(): string {
+  const envUrl = import.meta.env.VITE_SHOT_ANALYSIS_BASE_URL;
+  if (envUrl) {
+    // 如果环境变量明确设置了URL，使用环境变量的协议（不强制转换）
+    // 这样可以避免HTTPS前端访问HTTP后端时的混合内容问题
+    return envUrl;
+  }
+  // 默认使用当前页面的hostname和协议
+  const protocol = window.location.protocol;
+  const hostname = window.location.hostname;
+  return `${protocol}//${hostname}:8000`;
+}
 
 const ShotAnalysis: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'upload' | 'history'>('upload');
@@ -98,7 +114,8 @@ const ShotAnalysis: React.FC = () => {
         formData.append('file', selectedFile);
         
         try {
-          const uploadResponse = await fetch('http://localhost:8000/api/v1/analysis/upload', {
+          const baseUrl = getBackendBaseUrl();
+          const uploadResponse = await fetch(`${baseUrl}/api/v1/analysis/upload`, {
             method: 'POST',
             body: formData
           });
@@ -216,7 +233,7 @@ const ShotAnalysis: React.FC = () => {
           if (video.local_path) {
             // 检查是否在 data/uploads 目录
             if (video.local_path.includes('/uploads/')) {
-              const baseUrl = 'http://localhost:8000';
+              const baseUrl = getBackendBaseUrl();
               const filename = video.local_path.split('/uploads/').pop();
               const previewUrl = `${baseUrl}/data/uploads/${filename}`;
               setVideoUrl(previewUrl);
@@ -224,14 +241,14 @@ const ShotAnalysis: React.FC = () => {
             } else if (video.local_path.includes('/jobs/')) {
               // 如果在 jobs 目录下
               const pathAfterJobs = video.local_path.split('/jobs/').pop();
-              const baseUrl = 'http://localhost:8000';
+              const baseUrl = getBackendBaseUrl();
               const previewUrl = `${baseUrl}/data/jobs/${pathAfterJobs}`;
               setVideoUrl(previewUrl);
               console.log('设置视频预览URL:', previewUrl);
             } else {
               // 尝试直接使用文件名
               const filename = video.local_path.split('/').pop();
-              const baseUrl = 'http://localhost:8000';
+              const baseUrl = getBackendBaseUrl();
               const previewUrl = `${baseUrl}/data/uploads/${filename}`;
               setVideoUrl(previewUrl);
               console.log('尝试设置视频预览URL:', previewUrl);
@@ -813,7 +830,7 @@ const ShotAnalysis: React.FC = () => {
                       {item.thumbnail_url && !failedThumbnails.has(item.job_id) ? (
                         <>
                           <img 
-                            src={item.thumbnail_url.startsWith('http') ? item.thumbnail_url : `http://localhost:8000${item.thumbnail_url}`}
+                            src={item.thumbnail_url.startsWith('http') ? item.thumbnail_url : `${getBackendBaseUrl()}${item.thumbnail_url}`}
                             alt={item.title || '视频缩略图'}
                             className="w-full h-full object-cover opacity-70 group-hover:opacity-100 group-hover:scale-105 transition-all duration-300"
                             onError={() => {

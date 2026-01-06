@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "video-ai-demo"
+version = "0.1.0"
+description = "Video AI Demo Backend - 视频分析与镜头拆解服务"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [
+    {name = "Cube AI Team"}
+]
+
+dependencies = [
+    "fastapi==0.109.0",
+    "uvicorn[standard]==0.27.0",
+    "pydantic>=2.9.0",  # 升级以支持 Python 3.13
+    "pydantic-settings>=2.1.0",
+    "sqlalchemy>=2.0.36",  # 升级以支持 Python 3.13
+    "httpx==0.26.0",
+    "python-dotenv==1.0.0",
+    "jsonschema==4.21.1",
+    "aiosqlite==0.19.0",
+    "python-multipart==0.0.9",
+    "scenedetect[opencv]==0.6.3",
+    "opencv-python==4.9.0.80",
+    "numpy==1.26.3",
+    "PyJWT==2.8.0",
+    "email-validator==2.3.0",
+    "requests==2.31.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+

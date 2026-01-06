@@ -44,12 +44,15 @@ app = FastAPI(
 )
 
 # Add CORS middleware
+# 注意：allow_credentials=True 时不能使用 allow_origins=["*"]
+# 需要明确指定允许的源，或者设置 allow_credentials=False
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
-    allow_credentials=True,
+    allow_origins=["*"],  # 允许所有源
+    allow_credentials=False,  # 改为 False 以兼容 allow_origins=["*"]
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 

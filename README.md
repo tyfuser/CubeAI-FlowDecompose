@@ -536,32 +536,54 @@ Cube AI/
 #### 软件依赖
 
 **后端**:
-- Python 3.9+
+- Python 3.9+ (Video AI Demo), Python 3.10+ (Phone AI)
+  - ✅ 支持 Python 3.13（已更新依赖版本）
+  - ⚠️ Python 3.13 需要更新版本的依赖（pydantic>=2.9.0, sqlalchemy>=2.0.36）
 - FFmpeg (包含 ffprobe)
-- pip
+- **uv** (推荐) 或 pip (传统方式)
 
 **前端**:
 - Node.js 16+
 - npm 或 yarn
+- mkcert (用于生成 HTTPS 证书，可选)
+
+> 💡 **推荐使用 uv**: uv 是一个用 Rust 编写的极速 Python 包管理器，可以大幅提升依赖安装速度。项目已完全支持 uv，启动脚本会自动检测并使用。
 
 ### 安装步骤
 
-#### 1️⃣ 克隆项目
+#### 方式一：一键自动配置（推荐）⭐
 
 ```bash
+# 1. 克隆项目
 git clone <repository-url>
-cd Cube AI
+cd CubeAI-FlowDecompose
+
+# 2. 运行统一配置脚本
+./setup_environment.sh
 ```
 
-#### 2️⃣ 后端配置
+脚本会自动完成：
+- ✅ 检查系统依赖（Python、Node.js、FFmpeg）
+- ✅ 安装/检测 uv（可选，推荐）
+- ✅ 配置 Phone AI 后端依赖
+- ✅ 配置 Video AI Demo 后端依赖
+- ✅ 配置前端依赖和 HTTPS 证书
+- ✅ 创建必要的配置文件
+
+配置完成后，按照脚本提示：
+1. 编辑 `Backend/video_ai_demo/.env`，填入 `MM_LLM_API_KEY`
+2. 使用 `./start.sh` 启动所有服务
+
+> 💡 **提示**：
+> - 如果使用 Python 3.13，项目已自动配置兼容的依赖版本
+> - 所有启动脚本会自动检测并使用 `uv`（如果已安装）
+> - 前端 `.env` 会自动使用本机 IP 地址（避免手机访问问题）
+
+#### 方式二：手动配置
+
+##### 1️⃣ 安装系统依赖
 
 ```bash
-# 进入后端目录
-cd Backend/video_ai_demo
-
-# 安装 Python 依赖
-pip install -r requirements.txt
-
 # 安装 FFmpeg
 # macOS
 brew install ffmpeg
@@ -569,12 +591,44 @@ brew install ffmpeg
 # Ubuntu/Debian
 sudo apt update && sudo apt install ffmpeg
 
-# 配置环境变量
-cp .env.example .env
-
-# 编辑 .env 文件
-nano .env
+# 安装 uv（推荐，可选）
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
+
+##### 2️⃣ 配置 Phone AI 后端
+
+```bash
+cd Backend/phone_ai
+
+# 使用 uv（推荐）
+uv sync
+
+# 或使用 pip（传统方式）
+python3 -m venv venv
+source venv/bin/activate
+pip install -e ".[dev]"
+```
+
+##### 3️⃣ 配置 Video AI Demo 后端
+
+```bash
+cd Backend/video_ai_demo
+
+# 使用 uv（推荐）
+# 项目已配置 pyproject.toml，支持 Python 3.13
+uv sync
+
+# 或使用 pip（传统方式）
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+# 配置环境变量
+cp .env.example .env  # 如果存在
+# 编辑 .env 文件，填入 MM_LLM_API_KEY
+```
+
+> ⚠️ **Python 3.13 用户注意**：项目已更新依赖版本以支持 Python 3.13。如果使用 `pip` 安装遇到构建错误，建议使用 `uv` 或降级到 Python 3.12。
 
 **.env 配置示例**:
 
@@ -600,79 +654,74 @@ API_PORT=8000
 SECRET_KEY=your-secret-key-change-in-production
 ```
 
-#### 3️⃣ 前端配置
-
-```bash
-# 进入前端目录
-cd ../../frontend
-
-# 安装 Node.js 依赖
-npm install
-
-# 配置环境变量
-cp env.example.txt .env
-
-# 编辑 .env 文件
-nano .env
-```
-
-**.env 配置示例**:
-
-```env
-# API 配置
-VITE_API_BASE_URL=http://localhost:8000/api/v1
-VITE_SHOT_ANALYSIS_BASE_URL=http://localhost:8000
-
-# Gemini API（可选，用于 AI 功能）
-GEMINI_API_KEY=your_gemini_api_key
-
-# 功能开关
-VITE_ENABLE_MOCK=false
-VITE_ENABLE_API_LOG=true
-
-# 业务配置
-VITE_FREE_DAILY_QUOTA=5
-VITE_MAX_FILE_SIZE=100
-VITE_POLL_INTERVAL=2000
-```
-
-#### 4️⃣ 启动服务
-
-**启动后端**:
-
-```bash
-cd Backend/video_ai_demo
-
-# 方式 1：使用启动脚本
-./start.sh
-
-# 方式 2：直接启动
-uvicorn app.main:app --reload --port 8000
-
-# 方式 3：Python 模块方式
-python -m app.main
-```
-
-后端服务将在 `http://localhost:8000` 启动
-
-**启动前端**:
+##### 4️⃣ 配置前端
 
 ```bash
 cd frontend
 
-# 开发模式
+# 安装 Node.js 依赖
+npm install
+
+# 生成 HTTPS 证书（用于摄像头权限）
+mkdir -p certs
+LOCAL_IP=$(ifconfig | grep "inet " | grep -v 127.0.0.1 | head -1 | awk '{print $2}')
+mkcert -key-file certs/localhost+3-key.pem \
+       -cert-file certs/localhost+3.pem \
+       localhost 127.0.0.1 ::1 ${LOCAL_IP}
+
+# 创建 .env 文件（使用本机 IP，不要用 localhost）
+cat > .env << EOF
+VITE_API_BASE_URL=http://${LOCAL_IP}:8000/api/v1
+VITE_SHOT_ANALYSIS_BASE_URL=http://${LOCAL_IP}:8000
+VITE_PHONE_AI_PORT=8001
+VITE_API_TIMEOUT=30000
+VITE_ENABLE_MOCK=false
+VITE_ENABLE_API_LOG=true
+VITE_FREE_DAILY_QUOTA=5
+VITE_MAX_FILE_SIZE=100
+VITE_POLL_INTERVAL=2000
+EOF
+```
+
+> ⚠️ **重要**: 前端 `.env` 中必须使用本机 IP 地址（如 `192.168.1.100`），不要使用 `localhost`，否则手机无法访问。
+
+##### 5️⃣ 启动服务
+
+**方式 1：使用统一启动脚本（推荐）**
+
+```bash
+# 在项目根目录
+./start.sh
+# 选择启动方式（交互模式或后台模式）
+```
+
+**方式 2：手动启动（3个终端）**
+
+```bash
+# 终端 1: Video AI Demo
+cd Backend/video_ai_demo
+./start.sh
+
+# 终端 2: Phone AI
+cd Backend/phone_ai
+export PORT=8001
+./start_backend_https.sh
+
+# 终端 3: 前端
+cd frontend
 npm run dev
 ```
 
-前端应用将在 `http://localhost:3000` 启动
+##### 6️⃣ 访问应用
 
-#### 5️⃣ 访问应用
-
-1. **前端应用**: http://localhost:3000
-2. **后端 API 文档**: http://localhost:8000/docs
-3. **默认账号**:
+1. **前端应用**: https://YOUR_IP:3000 (HTTPS) 或 http://YOUR_IP:3000 (HTTP)
+2. **Video AI API 文档**: http://YOUR_IP:8000/docs
+3. **Phone AI API 文档**: https://YOUR_IP:8001/docs
+4. **默认账号**:
    - 邮箱: 任意邮箱
    - 密码: `demo123`
+
+> 📱 **手机访问**: 使用 HTTPS 模式启动前端，然后用手机扫描页面上的二维码即可访问。
 
 ---
 
@@ -1230,9 +1279,48 @@ chore: 构建/工具
 A: 确保 Python 版本 >= 3.9，可尝试：
 
 ```bash
+# 使用 uv（推荐，更快）
+uv sync
+
+# 或使用 pip
 pip install --upgrade pip
 pip install -r requirements.txt --no-cache-dir
 ```
+
+**Q: Python 3.13 安装依赖失败？**
+
+A: Python 3.13 需要更新版本的依赖，项目已更新：
+- `pydantic>=2.9.0`（支持 Python 3.13）
+- `sqlalchemy>=2.0.36`（支持 Python 3.13）
+
+如果使用 `uv`，会自动安装兼容版本。如果使用 `pip` 且遇到构建错误，建议：
+1. 使用 `uv`（推荐）
+2. 或使用 Python 3.12（更稳定）
+
+**Q: 如何安装 uv？**
+
+A: uv 是一个极速 Python 包管理器，推荐安装：
+
+```bash
+# 安装 uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# 验证安装
+uv --version
+
+# 如果命令未找到，添加到 PATH
+export PATH="$HOME/.cargo/bin:$PATH"
+# 或添加到 ~/.bashrc / ~/.zshrc
+echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> ~/.bashrc
+```
+
+**Q: uv 和 pip 有什么区别？我应该用哪个？**
+
+A: 
+- **uv**: 推荐使用，速度更快（Rust 实现），自动管理虚拟环境，支持依赖锁定
+- **pip**: 传统方式，兼容性更好，但速度较慢
+
+项目已完全支持两种方式，启动脚本会自动检测并使用 uv（如果已安装）。建议新环境使用 uv，现有稳定环境可继续使用 pip。
 
 **Q: FFmpeg 未找到？**
 
@@ -1259,6 +1347,41 @@ npm config set registry https://registry.npmmirror.com
 npm install
 ```
 
+**Q: 一键配置脚本失败？**
+
+A: 检查以下几点：
+
+```bash
+# 1. 确保脚本有执行权限
+chmod +x setup_environment.sh
+
+# 2. 检查系统依赖是否已安装
+python3 --version  # 需要 3.9+ (Video AI Demo), 3.10+ (Phone AI)
+node --version     # 需要 16+
+ffmpeg -version    # 需要已安装
+
+# 3. 手动运行脚本查看详细错误
+bash -x setup_environment.sh
+
+# 4. Python 3.13 用户：如果遇到依赖构建错误，脚本会自动回退到 pip
+```
+
+**Q: 依赖版本冲突？**
+
+A: 项目已更新依赖版本以支持 Python 3.13：
+- `pydantic>=2.9.0`（原 2.6.0）
+- `sqlalchemy>=2.0.36`（原 2.0.25）
+
+如果遇到版本冲突：
+```bash
+# 使用 uv（自动解决冲突）
+uv sync
+
+# 或清理后重新安装
+rm -rf .venv venv
+uv sync  # 或 pip install -r requirements.txt
+```
+
 ### 运行问题
 
 **Q: 后端启动失败？**
@@ -1279,9 +1402,48 @@ uvicorn app.main:app --port 8001
 **Q: 前端无法连接后端？**
 
 A: 检查：
-1. 后端是否正常运行（访问 http://localhost:8000/docs）
-2. `.env` 中的 `VITE_API_BASE_URL` 是否正确
-3. 浏览器控制台是否有 CORS 错误
+1. 后端是否正常运行（访问 http://YOUR_IP:8000/docs）
+2. `.env` 中的 `VITE_API_BASE_URL` 是否正确（**必须使用本机 IP，不要用 localhost**）
+3. 浏览器控制台是否有 CORS 错误或混合内容错误
+4. 如果前端使用 HTTPS，后端必须是 HTTP（或都使用 HTTPS）
+
+**Q: AI 拍摄助手页面加载不出来？**
+
+A: 常见问题：
+1. **JavaScript 错误**：检查浏览器控制台（F12），查看是否有错误
+2. **CORS 错误**：确保 Phone AI 后端使用 HTTPS 启动（`./start_backend_https.sh`）
+3. **WebSocket 连接失败**：检查后端是否运行，端口 8001 是否可访问
+4. **Mixed Content 错误**：Video AI Demo 使用 HTTP 是正常的，可以忽略
+
+排查步骤：
+```bash
+# 运行诊断脚本
+./check_phone_ai.sh
+
+# 检查服务状态
+./status.sh
+
+# 测试 API 端点
+curl -k -X POST https://localhost:8001/api/realtime/session
+```
+
+**Q: 手机无法访问前端？**
+
+A: 常见原因：
+1. **使用了 localhost**: 前端 `.env` 中必须使用本机 IP 地址
+2. **证书问题**: 确保已生成 HTTPS 证书（使用 mkcert）
+3. **防火墙**: 确保端口 3000、8000、8001 未被防火墙阻止
+4. **网络**: 确保手机和电脑在同一局域网
+
+解决方法：
+```bash
+# 获取本机 IP
+ifconfig | grep "inet " | grep -v 127.0.0.1
+
+# 更新前端 .env 文件
+# 将 localhost 替换为本机 IP
+sed -i 's/localhost/YOUR_IP/g' frontend/.env
+```
 
 **Q: 视频分析失败？**
 

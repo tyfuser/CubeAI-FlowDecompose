@@ -94,10 +94,10 @@ const Sidebar: React.FC<SidebarProps> = ({ activeSection, onSectionChange }) => 
       <div className="p-6">
         <div className="bg-gradient-to-br from-gray-900 to-black border border-white/5 rounded-[2rem] p-6 shadow-xl relative overflow-hidden group">
           <div className="absolute -top-10 -right-10 w-24 h-24 bg-indigo-500/10 blur-3xl group-hover:bg-indigo-500/20 transition-all" />
-          <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2 font-bold">
+          <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2 font-bold">
             <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-            AI 引擎状态
-          </p>
+            <span>AI 引擎状态</span>
+          </div>
           <div className="flex items-end justify-between mb-2">
             <span className="text-sm font-black">Gemini 3 Pro</span>
             <span className="text-[9px] text-indigo-400 font-black tracking-widest bg-indigo-400/10 px-1.5 rounded">专业版</span>

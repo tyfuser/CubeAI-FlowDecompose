@@ -1,0 +1,50 @@
+/* 
+ * 主样式文件
+ * 大部分样式通过 Tailwind CSS 和内联样式定义
+ * 此文件用于额外的全局样式
+ */
+
+/* 确保滚动条样式在所有浏览器中一致 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(55, 65, 81, 0.5) transparent;
+}
+
+/* 自定义滚动条样式（WebKit浏览器） */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #374151;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #4b5563;
+}
+
+/* 确保字体加载 */
+body {
+  font-family: 'Inter', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 玻璃态效果 */
+.glass {
+  background: rgba(17, 24, 39, 0.7);
+  backdrop-filter: blur(12px);
+}
+
+/* 发光效果 */
+.glow-indigo {
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.2);
+}
+
+

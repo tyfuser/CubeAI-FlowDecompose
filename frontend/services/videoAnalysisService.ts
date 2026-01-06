@@ -1,8 +1,38 @@
 import axios, { AxiosInstance } from 'axios';
 import { JobResponse, AnalysisOptions, VideoSource, HistoryItem } from '../types';
+import { fixUrlProtocol } from '../utils/urlHelper';
 
 // 镜头拆解分析功能使用独立的 API 地址
-const SHOT_ANALYSIS_BASE_URL = import.meta.env.VITE_SHOT_ANALYSIS_BASE_URL || 'http://localhost:8000';
+// 获取基础URL并修复协议
+// 注意：如果环境变量设置了HTTP URL，保持HTTP（即使当前页面是HTTPS）
+// 这是因为后端可能不支持HTTPS，强制转换会导致连接失败
+function getShotAnalysisBaseUrl(): string {
+  const envUrl = import.meta.env.VITE_SHOT_ANALYSIS_BASE_URL;
+  
+  // 调试日志
+  if (typeof window !== 'undefined') {
+    console.log('[ShotAnalysis] VITE_SHOT_ANALYSIS_BASE_URL:', envUrl);
+  }
+  
+  if (envUrl) {
+    // 如果环境变量明确设置了URL，使用环境变量的协议（不强制转换）
+    // 这样可以避免HTTPS前端访问HTTP后端时的混合内容问题
+    console.log('[ShotAnalysis] Using env URL:', envUrl);
+    return envUrl;
+  }
+  
+  // 如果没有设置环境变量，默认使用当前hostname + HTTP（因为后端通常不支持HTTPS）
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    const defaultUrl = `http://${hostname}:8000`;
+    console.warn('[ShotAnalysis] No VITE_SHOT_ANALYSIS_BASE_URL set, using default:', defaultUrl);
+    return defaultUrl;
+  }
+  
+  return 'http://localhost:8000';
+}
+
+const SHOT_ANALYSIS_BASE_URL = getShotAnalysisBaseUrl();
 const API_BASE_PATH = '/v1/video-analysis';
 
 // 创建独立的 Axios 实例
